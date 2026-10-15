@@ -72,6 +72,7 @@ node tests/run.cjs
 - [gas/05_CsvPublish.gs](gas/05_CsvPublish.gs)：段階保存→旧データの復旧用コピー→全件置換→旧データ復旧
 - [gas/CsvImport.html](gas/CsvImport.html)：応募／求人CSVのドラッグ＆ドロップ、件数プレビュー、取込実行、進捗・エラー表示
 - [gas/CsvImportLogic.html](gas/CsvImportLogic.html)：ブラウザ内CSV解析、CSV_A/Bの列名正規化、名前＋月による重複排除、企業ID＋仕事番号の求人JOIN、ホワイトリスト出力
+- [gas/CommonMasters.html](gas/CommonMasters.html)：Web版の共通コード名称マスタ（特徴コードの求人原稿文字数計算等に利用）
 - [gas/01_EntryPoint.gs](gas/01_EntryPoint.gs)：上部メニューにCSV取込・状態確認・中断破棄・旧データ復旧を追加
 - [tests/csv-import.test.cjs](tests/csv-import.test.cjs)：CSV_A/B、重複除外、求人備考全文・画像候補、直接個人情報非送信
 - [tests/import-lifecycle.test.cjs](tests/import-lifecycle.test.cjs)：GAS模擬環境で段階保存・旧世代入替・中断時復旧・未完了取込の取消
@@ -83,7 +84,7 @@ node tests/run.cjs
 1. 既存のスプレッドシートから「拡張機能」→「Apps Script」を開く。
 2. `01_EntryPoint.gs`をGitHub上の最新内容に**丸ごと差し替え**る（上部メニュー用）。
 3. `04_CsvUpload.gs`・`05_CsvPublish.gs`の**スクリプトファイル（.gs）**を追加する。
-4. `CsvImport.html`・`CsvImportLogic.html`の**HTMLファイル**を追加する。GitHubファイルの内容をそのままコピーする。`CsvImportLogic.html`はJavaScriptだけでなく、`<script>`タグも含める。
+4. `CsvImport.html`・`CsvImportLogic.html`・`CommonMasters.html`の**HTMLファイル**を追加する。GitHubファイルの内容をそのままコピーする。JavaScriptを含むHTMLは`<script>`タグも含める。
 5. 保存してスプレッドシートを再読込し、上部の「有効応募分析」→「CSV取込・全件更新」を開く。Googleの追加の承認を求められたら内容を確認して許可する。
 6. 初回は**架空の応募／求人CSV**で取込をテストする。件数プレビューを確認した後、全件更新を実行する。
 
