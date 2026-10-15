@@ -52,7 +52,10 @@ function setupTemplate() {
       vasRemoveDefaultBlankSheet_(ss);
     }
 
-    // Install cross-tab dropdowns only for newly created views.\n    vasFinalizeNewTemplate_(ss, created);\n\n    // Hide only the newly-created internal tabs; do not override the
+    // Install cross-tab dropdowns only for newly created views.
+    vasFinalizeNewTemplate_(ss, created);
+
+    // Hide only the newly-created internal tabs; do not override the
     // user's visibility decisions on subsequent runs.
     created.forEach(function(name) {
       const def = VAS_SHEETS.find(function(x) { return x.name === name; });
