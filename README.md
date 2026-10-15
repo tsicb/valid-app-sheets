@@ -115,7 +115,7 @@ node tests/import-lifecycle.test.cjs
 - A/B形式の列判定・正規化をファイル単位に統一。求人CSVは同一複合キーの先頭行を使用し、未突合分は応募CSV内の求人情報を補完。
 - 取込プレビューで応募CSV形式（A／B／GENERIC）、求人CSV行数、仕事番号一致件数・企業IDの不足状況を診断できる。
 - Web版未定義の「勤務場所名1」「雇用形態区分」「職種コード」等に対する独自変換は削除。今後の拡張は別途仕様として検討。
-- 現時点の**差し替え対象は`CsvImport.html`と`CsvImportLogic.html`**。以前の`04_CsvUpload.gs`のSTAGING案内修正を未反映であれば、そのファイルも更新する。
+- 今回の**差し替え／追加対象は4ファイル**：`CsvImport.html`、`CsvImportLogic.html`、`04_CsvUpload.gs`、新規 `CommonMasters.html`。Web版の共通コード変換マスタも取り込んで、求人原稿文字数の計算を合わせる。
 - 前回の取込が`STAGING`で止まっている場合は、他の取込が動作中でないことを確認して「有効応募分析 → 中断したCSV取込を破棄」を実行。既存テンプレートの再生成は不要。
 
 ## セキュリティ
