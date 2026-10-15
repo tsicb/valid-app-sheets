@@ -47,7 +47,10 @@ function vasSnapshotHome_() {
   const settings=ss.getSheetByName('30_分析設定');
   const locations=['B4','D4','F4','H4','J4','B12','B14','B15'];
   return {
-    home:home?locations.map(a=>home.getRange(a).getValue()):null,
+    home:home?locations.map(a=>{
+      const v=home.getRange(a).getValue();
+      return v instanceof Date?{__vasDate:v.toISOString()}:v;
+    }):null,
     settings:settings?settings.getRange('B38').getValue():null
   };
 }
@@ -59,7 +62,11 @@ function vasRestoreHomeSnapshot_() {
   const home=ss.getSheetByName('00_ホーム');
   if(home&&snap.home&&snap.home.length===8) {
     ['B4','D4','F4','H4','J4','B12','B14','B15']
-      .forEach((a,i)=>home.getRange(a).setValue(snap.home[i]));
+      .forEach((a,i)=>{
+        const raw=snap.home[i];
+        home.getRange(a).setValue(raw&&typeof raw==='object'&&raw.__vasDate?
+          new Date(raw.__vasDate):raw);
+      });
   }
   const settings=ss.getSheetByName('30_分析設定');
   if(settings&&snap.settings!==undefined&&snap.settings!==null)
