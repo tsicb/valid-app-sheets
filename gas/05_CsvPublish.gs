@@ -41,6 +41,31 @@ function vasRestoreBackups_() {
     vasReplaceFromSheet_(live,backup,spec.headers);
   }
 }
+function vasSnapshotHome_() {
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const home=ss.getSheetByName('00_ホーム');
+  const settings=ss.getSheetByName('30_分析設定');
+  const locations=['B4','D4','F4','H4','J4','B12','B14','B15'];
+  return {
+    home:home?locations.map(a=>home.getRange(a).getValue()):null,
+    settings:settings?settings.getRange('B38').getValue():null
+  };
+}
+function vasRestoreHomeSnapshot_() {
+  const raw=String(vasStateGet_('old_home_snapshot')||'');
+  if(!raw)return;
+  const snap=JSON.parse(raw);
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const home=ss.getSheetByName('00_ホーム');
+  if(home&&snap.home&&snap.home.length===8) {
+    ['B4','D4','F4','H4','J4','B12','B14','B15']
+      .forEach((a,i)=>home.getRange(a).setValue(snap.home[i]));
+  }
+  const settings=ss.getSheetByName('30_分析設定');
+  if(settings&&snap.settings!==undefined&&snap.settings!==null)
+    settings.getRange('B38').setValue(snap.settings);
+}
+
 function vasUpdateHomeAfterImport_(summary,generation) {
   const ss=SpreadsheetApp.getActiveSpreadsheet();
   const home=ss.getSheetByName('00_ホーム');
@@ -70,6 +95,7 @@ function finalizeVASImport(sessionId) {
        verification.jobs!==Number(sum.jobRecords))
       throw new Error('送信行数とアップロードサマリが一致しません。');
 
+    vasStateSet_('old_home_snapshot',JSON.stringify(vasSnapshotHome_()));
     vasStateSet_('import_status','PREPARED');
     const keys=Object.keys(VAS_DATASETS_);
     for(const kind of keys)vasCopyBackup_(VAS_DATASETS_[kind]);
@@ -93,6 +119,7 @@ function finalizeVASImport(sessionId) {
     vasStateSet_('last_import_error','');
     vasStateSet_('upload_session','');
     vasStateSet_('import_status','READY');
+    vasStateSet_('old_home_snapshot','');
     SpreadsheetApp.flush();
 
     // Cleanup errors do not turn a successful publish into a false failure.
@@ -106,6 +133,7 @@ function finalizeVASImport(sessionId) {
     if(state==='PUBLISHING'||(state==='PREPARED'&&hasBackups)) {
       try {
         vasRestoreBackups_();
+        vasRestoreHomeSnapshot_();
         vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
         vasStateSet_('last_import_error','CSV更新失敗・前回データを復旧しました：'+String(e.message||e));
         const home=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('00_ホーム');
@@ -118,6 +146,7 @@ function finalizeVASImport(sessionId) {
       }
     } else if(state==='PREPARED') {
       // Live sheets were not modified. Keep the previous generation.
+      vasRestoreHomeSnapshot_();
       vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
       vasStateSet_('upload_session','');
       try{vasCleanStages_();vasCleanBackups_();}catch(_){}
@@ -173,6 +202,7 @@ function recoverVASImport() {
     if(!allBackups)
       throw new Error('復旧用タブがそろっていません。データを変更せず停止しました。');
     vasRestoreBackups_();
+    vasRestoreHomeSnapshot_();
     vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
     vasStateSet_('upload_session','');
     vasStateSet_('last_import_error','利用者操作で旧データを復旧しました。');
