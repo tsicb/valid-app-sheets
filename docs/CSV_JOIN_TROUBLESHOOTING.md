@@ -44,7 +44,7 @@
 
 ## 今回の更新先・テスト
 
-- **差し替え対象**：`gas/CsvImportLogic.html`、`gas/CsvImport.html`
+- **差し替え対象**：`gas/CsvImportLogic.html`、`gas/CsvImport.html`、`gas/04_CsvUpload.gs`。**追加ファイル**：`gas/CommonMasters.html`（Web版の `common-masters-v1.js` を同期し、特徴コードの名称変換を使った求人原稿文字数の計算にも適用）。
 - `tests/csv-import.test.cjs` にA/B形式判定、Aに応募求人IDが無いケース、仕事番号のサフィックス除去、企業ID相違、求人CSVの重複キー、求人属性fallback、管理番号と仕事番号の不一致、個人情報の非送信などの合成テストを追加。
 - `04_CsvUpload.gs` のSTAGING時の案内改善は前回反映済み。まだ旧版の場合のみ別途更新。
 - Google Sheets実環境への最新版反映・実応募CSVでの突合確認はまだ必要。
