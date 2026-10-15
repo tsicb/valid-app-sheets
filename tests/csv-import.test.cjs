@@ -66,4 +66,33 @@ expectThrow(()=>parser('A,B'+LF+'1,"閉じていない'),'引用符が閉じて�
 expectThrow(()=>VAS_IMPORT.validateInput(parser('foo,bar'+LF+'a,b'),'app'),'必須列');
 expectThrow(()=>parser('A,A'+LF+'a,b'),'重複');
 
+// CSV_B's 応募求人ID can point to the job management ID rather than
+// the job's work-number. Only an exact match in the SAME enterprise is valid.
+const managementOnlyApp=parser([
+  '応募先企業ID,応募求人ID,応募日,応募者名,年齢,性別,求人都道府県',
+  '208905,27000345,2026/10/16 10:20,架空検証,30,女,北海道'
+].join(LF));
+const managementJob=parser([
+  '企業ID,仕事番号,仕事名,求人管理番号,雇用形態区分,職種コード,勤務場所名1,勤務地住所1,県コード1,公開情報区分',
+  '208905,aptcts-261008,北海道空港求人,27000345,4,432,新千歳空港,美々,1,6'
+].join(LF));
+const managementResult=VAS_IMPORT.buildModel([{parsed:managementOnlyApp}],[{parsed:managementJob}]);
+assert.equal(managementResult.summary.workNumberMatches,0);
+assert.equal(managementResult.summary.managementIdMatches,1);
+assert.equal(managementResult.summary.jobCsvRows,1);
+assert.equal(managementResult.applicationData[0][2],'aptcts-261008');
+assert.equal(managementResult.applicationData[0][4],1);
+assert.equal(managementResult.jobAnalysisMaster[0][9],'新千歳空港');
+assert.equal(managementResult.jobAnalysisMaster[0][10],'北海道');
+assert.equal(managementResult.jobAnalysisMaster[0][7],'コード:4');
+assert.equal(managementResult.jobAnalysisMaster[0][6],'コード:432');
+assert.equal(JSON.stringify(managementResult).includes('架空検証'),false);
+const wrongCompany=parser([
+  '応募先企業ID,応募求人ID,応募日,応募者名',
+  '999999,27000345,2026/10/16 10:20,別の架空検証'
+].join(LF));
+const wrong=VAS_IMPORT.buildModel([{parsed:wrongCompany}],[{parsed:managementJob}]);
+assert.equal(wrong.summary.managementIdMatches,0);
+assert.equal(wrong.summary.noSameCompany,1);
+
 process.stdout.write('CSV parser, normalization, joins, privacy and count tests passed.\n');
