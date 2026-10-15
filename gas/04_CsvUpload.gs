@@ -162,7 +162,9 @@ function beginVASImport(summary,expected) {
     vasCleanStages_();
     for(const k of names)vasStageSheet_(VAS_DATASETS_[k]);
     const id=vasMakeId_();
-    vasStateSet_('previous_import_status',state==='STAGING'||state==='PREPARED'?'UNIMPORTED':state);
+    const prior=(state==='STAGING'||state==='PREPARED')
+      ? String(vasStateGet_('previous_import_status')||'UNIMPORTED') : state;
+    vasStateSet_('previous_import_status',prior);
     vasStateSet_('upload_session',id);
     vasStateSet_('upload_started_ms',Date.now());
     vasStateSet_('upload_summary',JSON.stringify({
