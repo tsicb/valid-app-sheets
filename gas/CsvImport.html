@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<style>
+  :root{font-family:system-ui,"Yu Gothic",Meiryo,sans-serif;color:#18324d}
+  body{margin:0;padding:18px;background:#f6f9fc;font-size:13px}
+  h1{font-size:19px;margin:0 0 5px} p{margin:5px 0 12px;line-height:1.65}
+  .muted{color:#607286}.card{background:white;border:1px solid #d6e1e8;border-radius:9px;padding:15px;margin:10px 0}
+  .upload{border:2px dashed #9ebbd0;border-radius:9px;padding:16px;text-align:center;background:#f8fbfe}
+  .upload.drag{border-color:#236ca0;background:#eaf3fa}
+  .upload h2{font-size:15px;margin:0 0 8px}
+  .upload input{max-width:95%}.files{font-size:12px;margin:8px 0 0;white-space:pre-line}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  button{border:0;border-radius:7px;padding:11px 15px;font-size:14px;font-weight:bold;cursor:pointer}
+  button.primary{background:#236ca0;color:white}
+  button.secondary{background:#e2edf5;color:#18324d}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+  .summary>div{background:#edf5fa;padding:10px;border-radius:7px}
+  .summary strong{display:block;font-size:17px;margin-top:4px}
+  .notice{background:#fff6dc;border:1px solid #f0ddb0;padding:9px;border-radius:6px}
+  .status{white-space:pre-wrap;background:#edf5fa;padding:10px;border-radius:6px;min-height:34px}
+  .error{color:#9c1c1c;background:#fff0ed}
+  .done{color:#17633b;background:#e7f5ed}
+  .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+  @media(max-width:600px){.grid,.summary{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>CSV取込・全件更新</h1>
+<p class="muted">応募CSVは必須、求人CSVは任意です。複数ファイルを一度に選択できます。CSV_A／CSV_Bはファイルごとに判定します。</p>
+<div class="grid">
+  <section class="card upload" id="appDrop">
+    <h2>応募CSV</h2>
+    <input id="appFile" type="file" accept=".csv,text/csv" multiple>
+    <p class="muted">ドラッグ＆ドロップも可能</p>
+    <div id="appFiles" class="files">未選択</div>
+  </section>
+  <section class="card upload" id="jobDrop">
+    <h2>求人CSV（任意）</h2>
+    <input id="jobFile" type="file" accept=".csv,text/csv" multiple>
+    <p class="muted">ドラッグ＆ドロップも可能</p>
+    <div id="jobFiles" class="files">未選択</div>
+  </section>
+</div>
+<div class="card">
+  <div class="notice">この処理は<strong>全件置換</strong>です。現在の応募・求人データを、新しく選んだCSVの内容で置き換えます。求人CSVを省略した場合、前回の求人マスタを引き継ぎません。</div>
+  <p class="muted">氏名はブラウザ内で重複判定・文字種分類に使った後、送信対象から除外します。氏名・メールアドレス・電話・詳細住所・応募者自由記述のRAWはスプレッドシートへ送信しません。求人備考の全文は保存します。</p>
+  <div id="preview" style="display:none">
+    <h2 style="font-size:15px">取込前の確認</h2>
+    <div class="summary" id="summary"></div>
+    <div id="warn" class="muted"></div>
+  </div>
+  <div id="status" class="status" role="status" aria-live="polite">ファイルを選択してください。</div>
+  <div class="actions">
+    <button type="button" id="check" class="secondary">内容を確認</button>
+    <button type="button" id="save" class="primary" disabled>全件更新を実行</button>
+  </div>
+</div>
+<?!= vasInclude_('CsvImportLogic'); ?>
+<script>
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const state={apps:[],jobs:[],model:null,running:false};
+  const setStatus=(msg,kind)=>{$('status').textContent=msg;$('status').className='status'+(kind?' '+kind:'');};
+  const setBusy=v=>{state.running=v;$('check').disabled=v;$('save').disabled=v||!state.model;};
+  const drawFileList=()=>{
+    $('appFiles').textContent=state.apps.length?state.apps.map(f=>f.name).join('\n'):'未選択';
+    $('jobFiles').textContent=state.jobs.length?state.jobs.map(f=>f.name).join('\n'):'未選択';
+    state.model=null;$('preview').style.display='none';$('save').disabled=true;
+    setStatus('ファイルを確認してから更新できます。');
+  };
+  const bindDrop=(zone,input,key)=>{
+    $(input).addEventListener('change',e=>{state[key]=Array.from(e.target.files||[]);drawFileList();});
+    const d=$(zone);
+    d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('drag');});
+    d.addEventListener('dragleave',()=>d.classList.remove('drag'));
+    d.addEventListener('drop',e=>{
+      e.preventDefault();d.classList.remove('drag');
+      state[key]=Array.from(e.dataTransfer.files||[]).filter(f=>/\.csv$/i.test(f.name));
+      drawFileList();
+    });
+  };
+  bindDrop('appDrop','appFile','apps');bindDrop('jobDrop','jobFile','jobs');
+  function server(name,...args) {
+    return new Promise((resolve,reject)=>{
+      const g=google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      g[name](...args);
+    });
+  }
+  async function readFile(file,kind){
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    let enc='UTF-8';
+    let text='';
+    try {text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
+    catch(_) {enc='Shift_JIS';text=new TextDecoder('shift_jis',{fatal:true}).decode(bytes);}
+    const parsed=VAS_IMPORT.parseCsvText(text);
+    VAS_IMPORT.validateInput(parsed,kind);
+    return {parsed,encoding:enc};
+  }
+  $('check').addEventListener('click',async()=>{
+    if(state.running)return;
+    if(!state.apps.length){setStatus('応募CSVを1ファイル以上選択してください。','error');return;}
+    setBusy(true);setStatus('CSVをブラウザ内で読み込み、個人情報を除外したデータを作成しています。');
+    try{
+      const apps=await Promise.all(state.apps.map(f=>readFile(f,'app')));
+      const jobs=await Promise.all(state.jobs.map(f=>readFile(f,'job')));
+      const model=VAS_IMPORT.buildModel(apps,jobs);
+      state.model=model;
+      const metrics=[
+        ['元応募行数',model.summary.incomingApplications],
+        ['重複除外',model.summary.duplicateCount],
+        ['分析対象応募数',model.summary.totalApplications],
+        ['求人CSV突合',model.summary.matchedApplications],
+        ['応募CSV内求人',model.summary.embeddedApplications],
+        ['求人分析マスタ',model.summary.jobRecords]
+      ];
+      $('summary').replaceChildren();
+      metrics.forEach(([label,value])=>{
+        const x=document.createElement('div'),span=document.createElement('span'),strong=document.createElement('strong');
+        span.textContent=label;strong.textContent=Number(value).toLocaleString('ja-JP');
+        x.append(span,strong);$('summary').appendChild(x);
+      });
+      $('warn').textContent=model.summary.invalidDateCount?
+        '応募日を認識できない行が '+model.summary.invalidDateCount+' 件あります。応募日時関連の分析から除外される可能性があります。':'';
+      $('preview').style.display='';
+      setStatus('CSVの読込と突合が完了しました。件数を確認し「全件更新を実行」を押してください。','done');
+    }catch(e){state.model=null;setStatus(String(e.message||e),'error');}
+    finally{setBusy(false);}
+  });
+  const maxChunkCells=120000;
+  function makeChunks(rows){
+    const out=[];let current=[],chars=0;
+    for(const row of rows){
+      const size=JSON.stringify(row).length;
+      if(size>maxChunkCells)throw new Error('1行のデータが取込上限を超えています。');
+      if(current.length&&(current.length>=100||chars+size>maxChunkCells)){
+        out.push(current);current=[];chars=0;
+      }
+      current.push(row);chars+=size;
+    }
+    if(current.length)out.push(current);
+    return out;
+  }
+  $('save').addEventListener('click',async()=>{
+    if(state.running||!state.model)return;
+    const m=state.model;
+    const ok=confirm('現在の応募・求人・画像マスタを、今回選んだCSVで全件置換します。実行しますか？');
+    if(!ok)return;
+    setBusy(true);let id='';
+    try {
+      const datasets=['applicationData','jobAnalysisMaster','imageCandidates'];
+      const chunks=Object.fromEntries(datasets.map(k=>[k,makeChunks(m[k])]));
+      setStatus('データの安全な受入準備をしています。');
+      const prepared=await server('beginVASImport',m.summary,Object.fromEntries(datasets.map(k=>[k,m[k].length])));
+      id=prepared.sessionId;
+      let total=datasets.reduce((a,k)=>a+chunks[k].length,0),done=0;
+      for(const k of datasets){
+        for(let i=0;i<chunks[k].length;i++){
+          await server('appendVASImportChunk',id,k,i,chunks[k][i]);
+          done++;
+          setStatus('データを転送しています。 '+done+'/'+total+' チャンク\n途中では現在の分析データを書き換えません。');
+        }
+      }
+      setStatus('全データを検証して保存しています。\n処理中はこの画面を閉じないでください。');
+      const saved=await server('finalizeVASImport',id);
+      state.model=null;$('save').disabled=true;
+      setStatus('全件更新が正常に完了しました。\n応募 '+saved.applications+' 件 ／ 求人 '+saved.jobs+' 件。\n集計機能は今後の工程で実装します。','done');
+    }catch(e){
+      if(id){try{await server('cancelVASImport',id);}catch(_){}}
+      setStatus('更新を完了できませんでした。\n'+String(e.message||e)+'\n既存のデータの状態は「有効応募分析」メニューから確認してください。','error');
+    }finally{setBusy(false);}
+  });
+})();
+</script>
+</body></html>
