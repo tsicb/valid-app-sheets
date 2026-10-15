@@ -1,6 +1,6 @@
 # 有効応募分析・スプレッドシート版（valid-app-sheets）
 
-Google Sheetsを分析画面に使う、`valid-app` の派生プロジェクト。現在は**空テンプレート生成GASの初版を実装済み**です。CSV取込・求人突合・本集計・画像取得はまだ未実装です。
+Google Sheetsを分析画面に使う、`valid-app` の派生プロジェクト。現在は**空テンプレート生成とCSV全件取込・求人突合・安全な保存処理までの初版コードを実装済み**です。基本分析・カスタム分析・進捗グラフ・画像Workerへの実接続などの集計機能はまだ未実装です。
 
 ## 既存版との関係
 
@@ -63,6 +63,50 @@ node tests/run.cjs
 ```
 
 モックテストは初回14タブ生成、2回目の値・書式保持、意図的なヘッダー異常での中止を検査します。**実Google Sheets上での動作検証は別途必要**です。
+
+## 実装済み：CSVアップローダー v0.1（2026-10-16）
+
+### 追加したソースコード
+
+- [gas/04_CsvUpload.gs](gas/04_CsvUpload.gs)：シート内CSVダイアログ、取込セッション、CSV受信、型・参照関係の検証
+- [gas/05_CsvPublish.gs](gas/05_CsvPublish.gs)：段階保存→旧データの復旧用コピー→全件置換→旧データ復旧
+- [gas/CsvImport.html](gas/CsvImport.html)：応募／求人CSVのドラッグ＆ドロップ、件数プレビュー、取込実行、進捗・エラー表示
+- [gas/CsvImportLogic.html](gas/CsvImportLogic.html)：ブラウザ内CSV解析、CSV_A/Bの列名正規化、名前＋月による重複排除、企業ID＋仕事番号の求人JOIN、ホワイトリスト出力
+- [gas/01_EntryPoint.gs](gas/01_EntryPoint.gs)：上部メニューにCSV取込・状態確認・中断破棄・旧データ復旧を追加
+- [tests/csv-import.test.cjs](tests/csv-import.test.cjs)：CSV_A/B、重複除外、求人備考全文・画像候補、直接個人情報非送信
+- [tests/import-lifecycle.test.cjs](tests/import-lifecycle.test.cjs)：GAS模擬環境で段階保存・旧世代入替・中断時復旧・未完了取込の取消
+
+### すでにテンプレート生成済みのスプレッドシートへ追加する
+
+**スプレッドシート本体を再作成したり、`setupTemplate()`を再実行したりする必要はありません。**
+
+1. 既存のスプレッドシートから「拡張機能」→「Apps Script」を開く。
+2. `01_EntryPoint.gs`をGitHub上の最新内容に**丸ごと差し替え**る（上部メニュー用）。
+3. `04_CsvUpload.gs`・`05_CsvPublish.gs`の**スクリプトファイル（.gs）**を追加する。
+4. `CsvImport.html`・`CsvImportLogic.html`の**HTMLファイル**を追加する。GitHubファイルの内容をそのままコピーする。`CsvImportLogic.html`はJavaScriptだけでなく、`<script>`タグも含める。
+5. 保存してスプレッドシートを再読込し、上部の「有効応募分析」→「CSV取込・全件更新」を開く。Googleの追加の承認を求められたら内容を確認して許可する。
+6. 初回は**架空の応募／求人CSV**で取込をテストする。件数プレビューを確認した後、全件更新を実行する。
+
+必要な既存ファイル：`00_Config.gs`・`02_TemplateBase.gs`・`03_TemplateViews.gs`はテンプレート生成時のままでよい。
+
+### 取込結果
+
+- `20_突合データ`：応募1件＝1行、23列。氏名・メール・電話・住所の詳細は非保存。
+- `93_求人分析マスタ`：求人1件＝1行、20列。**求人備考全文を保存**。
+- `94_画像マスタ`：画像ファイル名と公開求人管理番号の候補を保存。WorkerによるURL取得は後続工程。
+- `00_ホーム`：CSV取込件数、突合率、最終CSV取込日とステータスを更新する。ただし**ターゲット数・ターゲット率は「集計待ち」**であり、まだ基本分析を実行しない。
+- エラー時には、先に作業用非表示タブ（95～97）に送ったデータを検証する。入替前に復旧用コピー（98～100）を作り、途中失敗時は復旧を試みる。複数タブの原子更新は保証できないので、復旧できなければ「復旧待ち」を表示する。
+- `基本分析`・`応募進捗`・`カスタム分析`・`TOP画像`・`Indeedタグ`の本集計とWorker取得は**まだ未実装**。
+
+### 自動テスト
+
+```bash
+node tests/run.cjs
+node tests/csv-import.test.cjs
+node tests/import-lifecycle.test.cjs
+```
+
+ブラウザ側・GAS側のロジックは架空CSVと模擬スプレッドシートでテスト済み。**Googleの実サーバー上でのCSV取込・権限・速度・復旧動作はまだ未検証**なので、実応募CSVの前に必ず架空データで試す。
 
 ## セキュリティ
 
