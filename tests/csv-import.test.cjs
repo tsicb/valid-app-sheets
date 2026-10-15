@@ -137,4 +137,27 @@ assert.equal(codeModel.jobAnalysisMaster[0][6],'');
 assert.equal(codeModel.jobAnalysisMaster[0][7],'');
 assert.equal(codeModel.jobAnalysisMaster[0][9],''); // not mapped in Web version
 
+// The Web key for an embedded job is allowed when enterprise ID exists
+// even when work number is blank. It is not an actual CSV job match.
+const numberless=parser([
+  '企業コード,仕事番号,応募日時,氏名,仕事名',
+  '900001,,2026/10/17 09:30,番号なし,応募CSV内の仕事'
+].join(LF));
+VAS_IMPORT.validateInput(numberless,'app');
+const embedded=VAS_IMPORT.buildModel([{parsed:numberless}],[]);
+assert.equal(embedded.summary.matchedApplications,0);
+assert.equal(embedded.summary.embeddedApplications,1);
+assert.equal(embedded.jobAnalysisMaster.length,1);
+assert.equal(embedded.applicationData[0][3],'JOB000001');
+
+// Web getYYYYMM uses a tolerant yyyy/mm extraction for de-duplication.
+const badDate=parser([
+  '企業コード,仕事番号,応募日時,氏名',
+  '900001,A,2026/10/99 12:00,検証架空氏名',
+  '900001,B,2026/10/98 12:00,検証架空氏名'
+].join(LF));
+const badDateResult=VAS_IMPORT.buildModel([{parsed:badDate}],[]);
+assert.equal(badDateResult.summary.duplicateCount,1);
+assert.equal(badDateResult.summary.invalidDateCount,1);
+
 process.stdout.write('CSV parser, normalization, joins, privacy and count tests passed.\n');
