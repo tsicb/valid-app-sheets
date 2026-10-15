@@ -120,7 +120,7 @@ function finalizeVASImport(sessionId) {
       // Live sheets were not modified. Keep the previous generation.
       vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
       vasStateSet_('upload_session','');
-      try{vasCleanStages_();}catch(_){}
+      try{vasCleanStages_();vasCleanBackups_();}catch(_){}
     }
     throw e;
   } finally {lock.releaseLock();}
