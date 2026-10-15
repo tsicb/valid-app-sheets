@@ -12,7 +12,8 @@ Google Sheetsを分析画面に使う、`valid-app` の派生プロジェクト�
 ## 現在の設計ドキュメント
 
 - [docs/DISPLAY_SPEC_DRAFT.md](docs/DISPLAY_SPEC_DRAFT.md)：表示タブ・固定列・カスタム分析・専用表・運用方針。**一部確定、その他は提案。**
-- [docs/JOINED_DATA_MODEL_DRAFT.md](docs/JOINED_DATA_MODEL_DRAFT.md)：応募明細＋求人マスタの2層保存、列定義、個人情報削減、全件更新のレビュー案。
+- [docs/JOINED_DATA_MODEL_DRAFT.md](docs/JOINED_DATA_MODEL_DRAFT.md)：応募明細＋求人マスタの2層保存、画像候補マスタ、分析30軸の保存列対応。
+- [docs/CSV_IMPORT_UPDATE_SPEC_DRAFT.md](docs/CSV_IMPORT_UPDATE_SPEC_DRAFT.md)：CSV全件取込、氏名を使った重複判定後の削除、段階書込、旧データ復旧の設計。
 
 ## 想定する方向性
 
