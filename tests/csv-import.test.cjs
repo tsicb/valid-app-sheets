@@ -60,7 +60,7 @@ const json=JSON.stringify(model);
 for(const sensitive of ['山田太郎','佐藤花子','渡辺新','東京都新宿区','千葉県市川市']){
   assert.equal(json.includes(sensitive),false,sensitive+' escaped raw source');
 }
-const escaped=parser('A,B'+LF+'1,"引用符""テスト"'+LF+'次の行"');
+const escaped=parser('A,B'+LF+'1,"引用符""テスト'+LF+'次の行"');
 assert.equal(escaped.rows[0].B,'引用符"テスト\n次の行');
 expectThrow(()=>parser('A,B'+LF+'1,"閉じていない'),'引用符が閉じていません');
 expectThrow(()=>VAS_IMPORT.validateInput(parser('foo,bar'+LF+'a,b'),'app'),'必須列');
