@@ -141,7 +141,7 @@ function beginVASImport(summary,expected) {
     if(state==='STAGING'||state==='PREPARED'){
       const started=Number(vasStateGet_('upload_started_ms'))||0;
       if(Date.now()-started<VAS_SESSION_STALE_MS_)
-        throw new Error('別のCSV取込が進行中です。終了するか、しばらく後にやり直してください。');
+        throw new Error('前回のCSV取込が未完了（STAGING）です。現在ほかの利用者が取込中でないことを確認し、シートの「有効応募分析 → 中断したCSV取込を破棄」で作業中データだけを破棄してからやり直してください。');
     }
     if(!summary||typeof summary!=='object'||!expected||typeof expected!=='object')
       throw new Error('取込サマリがありません。');
