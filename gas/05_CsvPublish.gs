@@ -137,6 +137,23 @@ function cancelVASImport(sessionId) {
     return {cancelled:true};
   } finally {lock.releaseLock();}
 }
+function abandonVASImport() {
+  const ui=SpreadsheetApp.getUi();
+  if(vasStatus_()!=='STAGING'){
+    ui.alert('中断可能なCSV取込はありません。');
+    return;
+  }
+  if(ui.alert('未完了のCSV取込を破棄',
+      '作業中の取込データを削除します。前回の正常な分析データは変更しません。',
+      ui.ButtonSet.YES_NO)!==ui.Button.YES)return;
+  const lock=vasImportLock_();
+  try{
+    vasCleanStages_();
+    vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
+    vasStateSet_('upload_session','');
+    ui.alert('未完了の取込を破棄しました。CSVをあらためて選択できます。');
+  }finally{lock.releaseLock();}
+}
 function recoverVASImport() {
   const ui=SpreadsheetApp.getUi();
   const choice=ui.alert('CSVデータの復旧',
