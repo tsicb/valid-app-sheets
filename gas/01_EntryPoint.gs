@@ -5,8 +5,12 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('有効応募分析')
+    .addItem('CSV取込・全件更新', 'openCsvDialog')
+    .addItem('取込状態を確認', 'checkVASImportStatus')
+    .addSeparator()
     .addItem('初期テンプレートを作成・確認', 'setupTemplate')
     .addItem('テンプレート状態を点検', 'verifyTemplate')
+    .addItem('旧データを復旧', 'recoverVASImport')
     .addSeparator()
     .addItem('使い方・現在の実装範囲', 'showTemplateHelp')
     .addToUi();
@@ -106,8 +110,8 @@ function showTemplateHelp() {
     '有効応募分析 スプレッドシート版 v' + VAS_TEMPLATE_VERSION + '\n\n' +
     '1. 最初に「初期テンプレートを作成・確認」を実行します。\n' +
     '2. 30_分析設定で設定値を、31_マスタ編集でマスタを編集できます。\n' +
-    '3. 現在はテンプレート生成まで実装済みです。\n' +
-    '4. CSV取込・求人突合・集計は今後追加します。\n\n' +
+    '3. 上部メニューのCSV取込から、応募CSVと任意の求人CSVを全件アップロードできます。\n' +
+    '4. 基本分析・進捗グラフ・カスタム集計は今後追加します。\n\n' +
     '空のテンプレートをコピーして、マイドライブ内で利用する設計です。'
   );
 }
