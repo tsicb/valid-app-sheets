@@ -120,7 +120,7 @@
         ['求人分析マスタ',model.summary.jobRecords],
         ['求人CSVの行数',model.summary.jobCsvRows],
         ['仕事番号で一致',model.summary.workNumberMatches],
-        ['求人管理番号で一致',model.summary.managementIdMatches]
+        ['求人CSVの企業数',model.summary.jobCsvCompanyCount]
       ];
       $('summary').replaceChildren();
       metrics.forEach(([label,value])=>{
@@ -130,6 +130,7 @@
       });
       const m=model.summary;
       const issues=[];
+      issues.push('応募CSV形式：'+apps.map((x,i)=>'ファイル'+(i+1)+'='+x.parsed.format).join('、'));
       if(m.invalidDateCount)issues.push('応募日を認識できない行：'+m.invalidDateCount+'件。応募日時関連の分析に影響する可能性があります。');
       if(m.jobCsvRows&&m.totalApplications){
         issues.push('突合診断：求人CSV '+m.jobCsvRows+'行／求人仕事番号 '+m.jobCsvWorkKeys+
@@ -138,7 +139,7 @@
         if(m.workNumberExistsOtherCompany)issues.push('仕事番号はあるが企業IDが異なる応募：'+m.workNumberExistsOtherCompany+'件。');
         if(m.workNumberMissing)issues.push('仕事番号が空欄の応募：'+m.workNumberMissing+'件。');
         if(m.matchedApplications/m.totalApplications<0.1)
-          issues.push('求人CSV突合率が低めです。仕事番号と応募求人ID／求人管理番号の違い、企業ID、求人CSVの対象期間をご確認ください。読み込みに失敗したという意味ではありません。');
+          issues.push('求人CSV突合率が低めです。Web版と同じ「企業ID＋正規化した仕事番号」でのみ照合しています。応募CSVと求人CSVの仕事番号・企業IDおよび掲載期間を確認してください。求人管理番号による代替突合は行いません。');
       }
       $('warn').textContent=issues.join('\n');
       $('preview').style.display='';
