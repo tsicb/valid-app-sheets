@@ -16,7 +16,7 @@ const VAS_UPLOAD_MAX_ROWS_ = 200;
 const VAS_SESSION_STALE_MS_ = 45*60*1000;
 
 function vasInclude_(fileName) {
-  if(fileName!=='CsvImportLogic')throw new Error('このHTMLファイルは読み込めません。');
+  if(!['CsvImportLogic','CommonMasters'].includes(fileName))throw new Error('このHTMLファイルは読み込めません。');
   return HtmlService.createHtmlOutputFromFile(fileName).getContent();
 }
 
