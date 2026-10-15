@@ -6,7 +6,10 @@ const path=require('node:path');
 const filename=path.join(__dirname,'../gas/CsvImportLogic.html');
 const source=fs.readFileSync(filename,'utf8')
   .replace(/^<script>\s*/,'').replace(/\s*<\/script>\s*$/,'');
-const VAS_IMPORT=new Function(source+'\nreturn VAS_IMPORT;')();
+const masterHtml=fs.readFileSync(path.join(__dirname,'../gas/CommonMasters.html'),'utf8');
+const masterCode=(masterHtml.match(/<script>([\s\S]*?)<\/script>/)||[])[1]||'';
+const fakeWindow={};
+const VAS_IMPORT=new Function('window',masterCode+'\n'+source+'\nreturn VAS_IMPORT;')(fakeWindow);
 const LF=String.fromCharCode(10),CRLF=String.fromCharCode(13,10);
 const parser=VAS_IMPORT.parseCsvText;
 
@@ -159,5 +162,18 @@ const badDate=parser([
 const badDateResult=VAS_IMPORT.buildModel([{parsed:badDate}],[]);
 assert.equal(badDateResult.summary.duplicateCount,1);
 assert.equal(badDateResult.summary.invalidDateCount,1);
+
+const featureJob=parser([
+  '企業ID,仕事番号,仕事名,求人管理番号,特徴コード',
+  '900001,FEATURE-01,特徴文字数の検証,987654,1::2'
+].join(LF));
+const featureApp=parser([
+  '企業コード,仕事番号,応募日時,氏名',
+  '900001,FEATURE-01,2026/10/16 13:00,架空特徴検証'
+].join(LF));
+VAS_IMPORT.validateInput(featureApp,'app');
+VAS_IMPORT.validateInput(featureJob,'job');
+const features=VAS_IMPORT.buildModel([{parsed:featureApp}],[{parsed:featureJob}]);
+assert.equal(features.jobAnalysisMaster[0][19],'未経験者活躍、第2新卒活躍'.length);
 
 process.stdout.write('CSV parser, normalization, joins, privacy and count tests passed.\n');
