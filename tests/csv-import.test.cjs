@@ -66,33 +66,75 @@ expectThrow(()=>parser('A,B'+LF+'1,"閉じていない'),'引用符が閉じて�
 expectThrow(()=>VAS_IMPORT.validateInput(parser('foo,bar'+LF+'a,b'),'app'),'必須列');
 expectThrow(()=>parser('A,A'+LF+'a,b'),'重複');
 
-// CSV_B's 応募求人ID can point to the job management ID rather than
-// the job's work-number. Only an exact match in the SAME enterprise is valid.
+// A/B detection is per file, and an A type does not require 応募求人ID.
+assert.equal(appA.format,'A');
+assert.equal(appB.format,'GENERIC'); // without 応募者ID this is not a genuine CSV_B
+const trueB=parser([
+  '応募先企業ID,応募求人ID,応募者ID,応募日,応募者名,年齢,性別,求人都道府県,求人市区町村,求人勤務地住所,住所,仕事名,掲載仕事備考',
+  '900001,DEMO-A_123,012,2026/10/16 10:20,架空検証,30,女,北海道,千歳市,美々,北海道札幌市,架空空港求人,求人元の備考'
+].join(LF));
+VAS_IMPORT.validateInput(trueB,'app');
+assert.equal(trueB.format,'B');
+const matchedJob=parser([
+  '企業ID,仕事番号,仕事名,求人管理番号,雇用形態,職種,勤務地1,求人備考,公開情報区分',
+  '900001,DEMO-A,先頭求人,80001234,正社員,事務,北海道千歳市,,6',
+  '900001,DEMO-A,重複求人,80001235,正社員,事務,北海道千歳市,,6'
+].join(LF));
+VAS_IMPORT.validateInput(matchedJob,'job');
+const joined=VAS_IMPORT.buildModel([{parsed:trueB}],[{parsed:matchedJob}]);
+assert.equal(joined.summary.workNumberMatches,1);
+assert.equal(joined.summary.matchedApplications,1);
+assert.equal(joined.applicationData[0][2],'DEMO-A_123'); // original source identifier retained
+assert.equal(joined.applicationData[0][4],1);
+assert.equal(joined.jobAnalysisMaster[0][5],'先頭求人'); // first matching job row wins
+assert.equal(joined.jobAnalysisMaster[0][11],'求人元の備考'); // application note fallback
+assert.equal(joined.applicationData[0][17],1); // application-side location matches residence
+assert.equal(JSON.stringify(joined).includes('架空検証'),false);
+
+// A numeric 応募求人ID is still a work-number, not a management ID.
+// In particular, it must NOT match a job's numeric 求人管理番号.
 const managementOnlyApp=parser([
-  '応募先企業ID,応募求人ID,応募日,応募者名,年齢,性別,求人都道府県',
-  '900001,80001234,2026/10/16 10:20,架空検証,30,女,北海道'
+  '応募先企業ID,応募求人ID,応募者ID,応募日,応募者名',
+  '900001,80001234,012,2026/10/16 10:20,架空検証'
 ].join(LF));
-const managementJob=parser([
-  '企業ID,仕事番号,仕事名,求人管理番号,雇用形態区分,職種コード,勤務場所名1,勤務地住所1,県コード1,公開情報区分',
-  '900001,DEMO-JOB-202610,架空空港求人,80001234,4,432,新千歳空港,美々,1,6'
-].join(LF));
-const managementResult=VAS_IMPORT.buildModel([{parsed:managementOnlyApp}],[{parsed:managementJob}]);
-assert.equal(managementResult.summary.workNumberMatches,0);
-assert.equal(managementResult.summary.managementIdMatches,1);
-assert.equal(managementResult.summary.jobCsvRows,1);
-assert.equal(managementResult.applicationData[0][2],'DEMO-JOB-202610');
-assert.equal(managementResult.applicationData[0][4],1);
-assert.equal(managementResult.jobAnalysisMaster[0][9],'新千歳空港');
-assert.equal(managementResult.jobAnalysisMaster[0][10],'北海道');
-assert.equal(managementResult.jobAnalysisMaster[0][7],'コード:4');
-assert.equal(managementResult.jobAnalysisMaster[0][6],'コード:432');
-assert.equal(JSON.stringify(managementResult).includes('架空検証'),false);
+VAS_IMPORT.validateInput(managementOnlyApp,'app');
+const managementOnly=VAS_IMPORT.buildModel([{parsed:managementOnlyApp}],[{parsed:matchedJob}]);
+assert.equal(managementOnly.summary.matchedApplications,0);
+assert.equal(managementOnly.summary.workNumberMatches,0);
+assert.equal(managementOnly.applicationData[0][2],'80001234');
+assert.equal(managementOnly.applicationData[0][4],0);
+assert.equal(managementOnly.summary.embeddedApplications,0);
+
+// No cross-enterprise join even if the work number is identical.
 const wrongCompany=parser([
-  '応募先企業ID,応募求人ID,応募日,応募者名',
-  '999999,80001234,2026/10/16 10:20,別の架空検証'
+  '応募先企業ID,応募求人ID,応募者ID,応募日,応募者名',
+  '999999,DEMO-A_123,987,2026/10/16 10:20,別の架空検証'
 ].join(LF));
-const wrong=VAS_IMPORT.buildModel([{parsed:wrongCompany}],[{parsed:managementJob}]);
-assert.equal(wrong.summary.managementIdMatches,0);
+VAS_IMPORT.validateInput(wrongCompany,'app');
+const wrong=VAS_IMPORT.buildModel([{parsed:wrongCompany}],[{parsed:matchedJob}]);
+assert.equal(wrong.summary.workNumberMatches,0);
 assert.equal(wrong.summary.noSameCompany,1);
+
+// App-side workplace is authoritative for the residence matching axis;
+// job CSV workplace must not silently replace it.
+const mismatchApp=parser([
+  '企業コード,仕事番号,応募日時,氏名,住所,勤務地1',
+  '900001,DEMO-A_001,2026/10/16 12:10,別の検証,東京都豊島区,東京都港区'
+].join(LF));
+VAS_IMPORT.validateInput(mismatchApp,'app');
+const mismatched=VAS_IMPORT.buildModel([{parsed:mismatchApp}],[{parsed:matchedJob}]);
+assert.equal(mismatched.summary.matchedApplications,1);
+assert.equal(mismatched.applicationData[0][17],1);
+assert.equal(mismatched.jobAnalysisMaster[0][10],'北海道');
+
+// Real exported job CSV columns are not secretly decoded into made-up labels.
+const codeJob=parser([
+  '企業ID,仕事番号,仕事名,求人管理番号,雇用形態区分,職種コード,勤務場所名1,勤務地住所1,県コード1',
+  '900001,DEMO-A,架空求人,876543,4,432,架空空港,美々,1'
+].join(LF));
+const codeModel=VAS_IMPORT.buildModel([{parsed:mismatchApp}],[{parsed:codeJob}]);
+assert.equal(codeModel.jobAnalysisMaster[0][6],'');
+assert.equal(codeModel.jobAnalysisMaster[0][7],'');
+assert.equal(codeModel.jobAnalysisMaster[0][9],''); // not mapped in Web version
 
 process.stdout.write('CSV parser, normalization, joins, privacy and count tests passed.\n');
