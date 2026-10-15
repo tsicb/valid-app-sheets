@@ -156,7 +156,9 @@ function beginVASImport(summary,expected) {
        Number(summary.jobRecords)!==expected.jobAnalysisMaster||
        Number(summary.imageTargets)!==expected.imageCandidates)
       throw new Error('取込件数に不整合があります。');
-    // Old backups indicate an interrupted publish. Do not discard them.
+    // READY leftovers are safe post-publish cleanup artifacts. Non-READY
+    // backups may be needed for recovery and must not be discarded.
+    if(state==='READY')vasCleanBackups_();
     for(const k of names)if(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(VAS_DATASETS_[k].backup))
       throw new Error('復旧用データが残っています。新規取込の前に状態を点検してください。');
     vasCleanStages_();
