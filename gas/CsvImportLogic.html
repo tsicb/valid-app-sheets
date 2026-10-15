@@ -39,6 +39,13 @@ const VAS_IMPORT = (() => {
   const jobKey = raw => s(raw).toUpperCase().replace(/_[0-9]{3,8}$|§.*/g, '');
   const company = r => s(v(r,['企業コード','企業ID','応募先企業ID'])).toUpperCase();
   const makeKey = (id,number) => s(id).toUpperCase()+'_'+jobKey(number);
+  const getYYYYMM = raw => {
+    // Same tolerant month extraction as Web getYYYYMM, even if date cannot
+    // subsequently be parsed into a valid YYYY-MM-DD.
+    if(!s(raw))return '';
+    const pieces=s(raw).split(/[ T]/)[0].split(/[\/\-]/);
+    return pieces.length>=2 ? pieces[0]+pieces[1].padStart(2,'0') : '';
+  };
   const normalizeGender = raw => {
     const x=s(raw);
     return x==='男'||x==='男性' ? '男性' : x==='女'||x==='女性' ? '女性' :
@@ -233,7 +240,8 @@ const VAS_IMPORT = (() => {
     });
     const seen=new Set(),kept=[];let duplicates=0;
     for(const a of applications){
-      const dt=parseStamp(a.datetime), dedupe=dt.month&&a.name?dt.month.replace('-','')+'_'+a.name:'';
+      const dt=parseStamp(a.datetime), yyyyMM=getYYYYMM(a.datetime);
+      const dedupe=yyyyMM&&a.name?yyyyMM+'_'+a.name:'';
       if(dedupe&&seen.has(dedupe)){duplicates++;continue;}
       if(dedupe)seen.add(dedupe);
       kept.push({a,dt});
@@ -253,7 +261,7 @@ const VAS_IMPORT = (() => {
       else if(!a.number)workNumberMissing++;
       else if(workNumbers.has(jobKey(a.number)))workNumberExistsOtherCompany++;
       let ref='',source='';
-      if(meta&&a.number){
+      if(meta&&(a.company||a.number)){
         if(!map.has(key)){
           ref='JOB'+String(nextJob++).padStart(6,'0');
           meta[0]=ref;masters.push(meta);map.set(key,meta);
