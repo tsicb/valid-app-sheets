@@ -114,7 +114,6 @@ function vasInitMasters_(sheet) {
 
 function vasInitBasic_(sheet) {
   sheet.getRange('A3').setValue('分析項目');
-  const options = sheet.getParent().getSheetByName('92_運用管理');
   // Hidden tab may be created later; the data validation is installed
   // once all sheets exist by vasFinalizeNewTemplate_.
   sheet.getRange('B3').setBackground(VAS_THEME.input);
@@ -135,8 +134,8 @@ function vasInitBasic_(sheet) {
 function vasInitProgress_(sheet) {
   sheet.getRange('A3').setValue('表示モード');
   sheet.getRange('B3').setValue('日別');
-  sheet.getRange('B3').setDataValidation(vasListValidation_(['日別','累積']));
-  vasColorInput_(sheet.getRange('B3'));
+  sheet.getRange('B3').setBackground(VAS_THEME.pale);
+  // Single source for progress mode is 30_分析設定!B28.
   sheet.getRange('D3').setValue('最新月応募数：未取込');
   sheet.getRange('F3').setValue('着地予測：未取込');
   sheet.getRange('H3').setValue('比較月：未取込');
@@ -217,6 +216,10 @@ function vasFinalizeNewTemplate_(ss, created) {
   if (known['40_基本分析']) {
     ss.getSheetByName('40_基本分析').getRange('B3')
       .setDataValidation(vasRangeValidation_(state.getRange('H2:H1000')));
+  }
+  if (known['41_応募進捗']) {
+    ss.getSheetByName('41_応募進捗').getRange('B3')
+      .setFormula("='30_分析設定'!B28");
   }
   if (known['42_カスタム分析']) {
     const custom = ss.getSheetByName('42_カスタム分析');
