@@ -7,6 +7,7 @@ function onOpen() {
     .createMenu('有効応募分析')
     .addItem('CSV取込・全件更新', 'openCsvDialog')
     .addItem('取込状態を確認', 'checkVASImportStatus')
+    .addItem('中断したCSV取込を破棄', 'abandonVASImport')
     .addSeparator()
     .addItem('初期テンプレートを作成・確認', 'setupTemplate')
     .addItem('テンプレート状態を点検', 'verifyTemplate')
