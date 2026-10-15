@@ -165,7 +165,7 @@ function runTemplateSmokeTests(source) {
   assert(data.getRange('A1').getValue()==='壊れたヘッダー','header changed on failure');
   assert(app.VAS_DISPLAY_ITEMS.length===33,'should have 33 display definitions');
   assert(app.VAS_AGE_LABELS.length===8,'should have 8 age columns');
-  return {passed:12,createdSheets:14,displayItems:33,ageColumns:8,
+  return {status:'all assertions passed',createdSheets:14,displayItems:33,ageColumns:8,
           secondRun:'no values or formats overwritten',
           brokenHeader:'rejected without repair',alerts:alerts.length};
 }
