@@ -128,7 +128,7 @@ const VAS_IMPORT = (() => {
     const set=new Set(parsed.headers), required=(kind==='app'?
       [['仕事番号','お仕事NO','応募求人ID'],['応募日時','応募日'],
        ['氏名','応募者名'],['企業コード','企業ID','応募先企業ID']]
-      :[['仕事番号'],['仕事名'],['求人管理番号'],['企業ID','企業コード']]);
+      :[['仕事番号','お仕事NO'],['仕事名'],['求人管理番号'],['企業ID','企業コード']]);
     const missing=required.filter(g=>!g.some(x=>set.has(x)));
     if(missing.length)throw new Error(
       (kind==='app'?'応募CSV':'求人CSV')+'の必須列が不足しています：'+
