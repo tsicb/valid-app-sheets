@@ -196,8 +196,17 @@ const VAS_IMPORT = (() => {
     const locName=preferred('求人勤務地名称',['勤務地名1']);
     const recruit=preferred('募集背景');
     const notes=preferred('求人備考',['掲載仕事備考']); // full raw job notes
-    const textLength=matched?JOB_LENGTH_KEYS.reduce((n,key)=>
-      n+s(job[key]).replace(/<br\s*\/?>/gi,'').length,0):'';
+    // Web's calculateJobTextLengthFromRawJob() decodes the 特徴 column
+    // via common-masters-v1 before removing HTML <br> and counting text.
+    const textLength=matched?JOB_LENGTH_KEYS.reduce((n,key)=>{
+      let value=s(job[key]);
+      if(key==='特徴' && value){
+        const master=typeof window!=='undefined'?
+          window.VAA_COMMON_MASTERS?.featureCodeMap:null;
+        if(master)value=value.split('::').map(code=>master[code]||code).join('、');
+      }
+      return n+value.replace(/<br\s*\/?>/gi,'').length;
+    },0):'';
     const values=[
       '', matched?'JOB_CSV':'APPLICATION_EMBEDDED',app.company,app.number,
       matched?s(job['求人管理番号']):'',s(rawName),
