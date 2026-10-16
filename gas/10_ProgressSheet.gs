@@ -5,7 +5,7 @@
  */
 const VAS_PROGRESS_CHART_TITLE_ = '応募進捗｜最新月と過去月';
 function vasProgressFormula_(col,row){
-  return "IF('91_進捗キャッシュ'!"+col+row+'="","",' +
+  return "IF(ISBLANK('91_進捗キャッシュ'!"+col+row+'),"",' +
     "'91_進捗キャッシュ'!"+col+row+')';
 }
 function vasProgressChartFormulas_(){
