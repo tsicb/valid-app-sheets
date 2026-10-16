@@ -68,7 +68,7 @@ function app(media,month='2026-10',ref='J',count=1,age=25){
 }
 const j=Array(20).fill('');
 j[0]='J';j[1]='JOB_CSV';j[5]='事務職';j[6]='事務';
-j[12]='3';j[13]=300000;
+j[12]='3';j[13]=300000;j[14]='top-file.png';
 let apps=[app('Indeed'),app('自社'),app('Indeed','2026-09'),app('SNS','2026-10','',1,35)];
 const jobs=[j];
 const masters={keywords:['事務'],enterprises:[['001','架空会社']]};
@@ -85,6 +85,7 @@ const options=[
 for(const [,id] of options)enabled.set(id,true);
 let state={import_status:'READY',active_generation:'G1'};
 let alerts=[];
+sheets['30_分析設定'].getRange('I36').setValue(true); // top-image-detail ON
 const vals=sheets['42_カスタム分析'];
 const control=sheets['92_運用管理'];
 const gas={
@@ -127,6 +128,7 @@ assert.equal(vals.getRange('B3').getValue(),'応募年月');
 assert.equal(vals.getRange('E3').getValue(),'応募媒体');
 assert.equal(control.getRange('K2').getValue(),'応募年月');
 assert.equal(control.getRange('K3').getValue(),'応募媒体');
+assert.equal(control.getRange('K2:K40').getValues().some(r=>r[0]==='TOP画像ファイル名'),true);
 core.applyCustomAnalysis();
 assert.equal(vals.getRange('A12').getValue(),'応募年月');
 assert.equal(vals.getRange('D12').getValue(),'行合計');
