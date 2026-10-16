@@ -15,6 +15,7 @@ Google Sheetsを分析画面に使う、`valid-app` の派生プロジェクト�
 - [docs/JOINED_DATA_MODEL_DRAFT.md](docs/JOINED_DATA_MODEL_DRAFT.md)：応募明細＋求人マスタの2層保存、画像候補マスタ、分析30軸の保存列対応。
 - [docs/CSV_IMPORT_UPDATE_SPEC_DRAFT.md](docs/CSV_IMPORT_UPDATE_SPEC_DRAFT.md)：CSV全件取込、氏名を使った重複判定後の削除、段階書込、旧データ復旧の設計。
 - [docs/TEMPLATE_LAYOUT_SPEC_DRAFT.md](docs/TEMPLATE_LAYOUT_SPEC_DRAFT.md)：各タブのセル配置、基本分析の切替式、設定・マスタ編集位置、更新関数の書込権限の設計。
+- [docs/CSV_UPLOAD_PERFORMANCE_FIX_20261016.md](docs/CSV_UPLOAD_PERFORMANCE_FIX_20261016.md)：実CSV保存時の型エラー対策、GAS通信・書込の高速化、状態復旧、既存シートへの差し替え手順とテスト。
 
 ## 想定する方向性
 
@@ -127,6 +128,16 @@ node tests/import-lifecycle.test.cjs
 - Date型を模擬シートに再現した`tests/import-lifecycle.test.cjs`を追加し、全件公開・途中障害からの復旧を含めてモックテスト通過。実Google Sheetsでの性能・型変換は引き続き再試行で確認する。
 - 今回の反映対象：**`gas/04_CsvUpload.gs` と `gas/CsvImport.html`**。スプレッドシートの再生成は不要。以前のA/B対応が未反映なら、`gas/CsvImportLogic.html`と`gas/CommonMasters.html`も合わせる。
 - CSV取込が途中中断して`STAGING`になっている場合は、「取込状態を確認」し、誰も実行中でないことを確認してから「中断したCSV取込を破棄」。`PUBLISHING`／`RECOVERY_REQUIRED`なら復旧フローに従う。
+
+### 追加改修：GASの通信回数削減・正常完了処理の強化
+
+- 本番データのプレビュー件数は2,453件、そのうち求人CSVとの突合は2,450件。**照合ルールは変更せず**、GASへの受渡・保存処理を改善。
+- 取込開始時と正常完了時の運用状態を**一括更新**。CSVチャンクは200行ごと、**最大3チャンクを1回のGAS呼び出し**にまとめ、通信1回のデータ量を制限。
+- シート内の本番データ入替は**500行→1,000行単位**へ。前回データの退避・復旧は維持。
+- Google Sheetsから読み戻した`Date`型の変換を検証し、旧世代への復旧時はデータ世代IDも戻す。新データの本番書込を確定してから`READY`にする。
+- 処理時間をブラウザ／受入準備／データ送信／本番反映の4段階で表示。**実環境での処理速度は未計測**。
+- **今回の差し替えは最新の3ファイル**：`gas/04_CsvUpload.gs`、`gas/05_CsvPublish.gs`、`gas/CsvImport.html`。変更はGitHubだけであり、利用中のApps Scriptには手動反映が必要。
+- 実装詳細・復旧・確認手順は [CSV取込の型エラー／高速化対応](docs/CSV_UPLOAD_PERFORMANCE_FIX_20261016.md) を参照。
 
 ### 別案：GitHub Pagesで加工後、Google Sheetsへファイルをインポート
 
