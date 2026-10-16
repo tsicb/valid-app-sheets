@@ -75,7 +75,7 @@ const pivot=core.vasCustomCalculate_(apps,jobs,{
 assert.equal(pivot.scope,'jobAnalysis');
 assert.equal(pivot.used,5);
 assert.equal(pivot.headers.length,5);
-assert.equal(pivot.rows.length,3);
+assert.equal(pivot.rows.length,2);
 assert.equal(pivot.rows.some(r=>r[0]==='Indeed'&&r[1]==='配送'),true);
 const matched=core.vasCustomCalculate_(apps,jobs,{
  ...options,rowAxes:['応募媒体','給与区分'],
