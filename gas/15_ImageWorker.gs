@@ -45,11 +45,14 @@ function vasDetailResolveImageBatch_(items,fetchAll){
  }
  return result;
 }
-function vasDetailPendingImages_(rows,maxFiles){
+function vasDetailPendingImages_(rows,maxFiles,retryFailed){
  const pending=[],all=[];
  for(let i=0;i<rows.length;i++){
   const name=vasStr_(rows[i][0]),currentUrl=vasDetailImageUrl_(rows[i][2]);
   if(!name||currentUrl)continue;
+  const status=vasStr_(rows[i][3]);
+  // Failed lookups must not starve untried images in later batches.
+  if(!retryFailed&&(status==='画像なし'||status==='取得失敗'))continue;
   const ids=[...new Set(vasStr_(rows[i][1]).split('::').map(vasStr_)
     .filter(id=>/^\d+$/.test(id)))];
   if(!ids.length)continue;
@@ -74,7 +77,9 @@ function vasDetailUpdateImageFormulas_(ss,masterRows) {
  if(count)view.getRange(9,1,count,1).setFormulas(formulas);
 }
 /** A network operation, NEVER run from an onEdit/onOpen trigger. */
-function refreshTopImages(){
+function refreshTopImages(){vasDetailRunImageRefresh_(false);}
+function retryFailedTopImages(){vasDetailRunImageRefresh_(true);}
+function vasDetailRunImageRefresh_(retryFailed){
  const lock=vasImportLock_();
  try {
   if(vasStatus_()!=='READY')
@@ -86,11 +91,13 @@ function refreshTopImages(){
    SpreadsheetApp.getUi().alert('画像マスタに候補がありません。');
    return;
   }
-  const {pending,remaining}=vasDetailPendingImages_(rows,VAS_DETAIL_IMAGE_BATCH_);
+  const {pending,remaining}=vasDetailPendingImages_(rows,VAS_DETAIL_IMAGE_BATCH_,retryFailed);
   if(!pending.length){
    vasDetailUpdateImageFormulas_(ss,rows);
-   SpreadsheetApp.getUi().alert('未取得の公開求人候補IDはありません。'+
-    '画像がない・候補なしのファイルは取得できません。');
+   SpreadsheetApp.getUi().alert(retryFailed?
+    '再試行する画像候補はありません。':
+    '未取得の公開求人候補IDはありません。失敗した画像を再試行する場合は、'+
+    '専用の再試行メニューを使ってください。');
    return;
   }
   const results=vasDetailResolveImageBatch_(pending,
