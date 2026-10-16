@@ -4,12 +4,19 @@
  * No applicant/job data is read here: this is lightweight for onEdit/onOpen.
  */
 const VAS_BASIC_SETTING_CELLS_ = Object.freeze([
-  'B5','B6','B9','B10','B13','B14','B17','B18'
+  'B5','B6','B9','B10','B13','B14','B17','B18',
+  'B19','B20','B21','B22','B23','B24','B25'
 ]);
-function vasBasicSnapshotFromSheet_(settings) {
+function vasBasicReadMasterRows_(sheet) {
+  if(!sheet)return [];
+  const last=sheet.getLastRow();
+  if(last<5)return [];
+  return sheet.getRange(5,1,last-4,7).getValues();
+}
+function vasBasicSnapshotFromSheet_(settings,masterSheet) {
   const input={};
-  // One range read instead of 8 individual Spreadsheet service calls.
-  const column=settings.getRange('B5:B18').getValues();
+  // One range read instead of 15 individual Spreadsheet service calls.
+  const column=settings.getRange('B5:B25').getValues();
   VAS_BASIC_SETTING_CELLS_.forEach(a1=>{
     input[a1]=column[Number(a1.slice(1))-5][0];
   });
@@ -17,7 +24,10 @@ function vasBasicSnapshotFromSheet_(settings) {
   const enabled=new Map(toggles.map(r=>[String(r[0]),r[2]===true]));
   return {
     options:vasParseSettings_(input),
-    enabled:VAS_BASIC_AXES_.map(([id])=>[id,enabled.get(id)===true])
+    enabled:VAS_BASIC_AXES_.map(([id])=>[id,enabled.get(id)===true]),
+    // Track active keywords/company labels only. Notes/disabled rows do
+    // not affect the resulting basic analysis.
+    masters:vasExtractBasicMasters_(vasBasicReadMasterRows_(masterSheet))
   };
 }
 function vasAgeLabel_(min,max) {
@@ -52,7 +62,9 @@ function vasCompareBasicSnapshot_(settings,state){
   if(String(state.basic_analysis_generation||'')!==
      String(state.active_generation||''))return 'CSV更新後・基本分析未反映';
   try{
-    const current=vasBasicSnapshotFromSheet_(settings);
+    const sheet=SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName('31_マスタ編集');
+    const current=vasBasicSnapshotFromSheet_(settings,sheet);
     if(JSON.stringify(current)!==applied)return '設定変更あり・再集計未反映';
     return '基本分析反映済み';
   }catch(_){
@@ -77,9 +89,17 @@ function vasRefreshBasicStatus_() {
 function vasOnEditBasicStatus_(e) {
   if(!e||!e.range)return;
   const r=e.range;
-  if(r.getSheet().getName()!=='30_分析設定')return;
+  const tab=r.getSheet().getName();
+  if(tab!=='30_分析設定'&&tab!=='31_マスタ編集')return;
   const inRows=(lo,hi)=>r.getRow()<=hi&&r.getLastRow()>=lo;
   const inCol=column=>r.getColumn()<=column&&r.getLastColumn()>=column;
+  if(tab==='31_マスタ編集') {
+    // A:B = priority KW/enable; E:G = enterprise ID/label/enable.
+    if(inRows(5,Math.max(5,r.getSheet().getLastRow()))&&
+       (inCol(1)||inCol(2)||inCol(5)||inCol(6)||inCol(7)))
+      vasRefreshBasicStatus_();
+    return;
+  }
   const inputTouched=inCol(2)&&VAS_BASIC_SETTING_CELLS_.some(a1=>{
     const row=Number(a1.slice(1));
     return inRows(row,row);
