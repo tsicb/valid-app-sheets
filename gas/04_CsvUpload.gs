@@ -275,6 +275,8 @@ function appendVASImportBatch(sessionId,packets) {
   try {
     if(!Array.isArray(packets)||packets.length<1||packets.length>3)
       throw new Error('一括転送は1～3チャンクで指定してください。');
+    if(JSON.stringify(packets).length>300000)
+      throw new Error('一括転送のデータ量が上限を超えています。');
     const state=vasStateSnapshot_();
     vasAssertUploadSession_(state,sessionId);
     const results=[];
