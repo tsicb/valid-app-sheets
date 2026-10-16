@@ -4,6 +4,7 @@ function onOpen() {
     .createMenu('有効応募分析')
     .addItem('CSV取込・全件更新', 'openCsvDialog')
     .addItem('基本分析を再集計', 'applyBasicAnalysis')
+    .addItem('応募進捗を再集計', 'applyProgressAnalysis')
     .addItem('取込状態を確認', 'checkVASImportStatus')
     .addItem('中断したCSV取込を破棄', 'abandonVASImport')
     .addSeparator()
@@ -14,10 +15,12 @@ function onOpen() {
     .addItem('使い方・現在の実装範囲', 'showTemplateHelp')
     .addToUi();
   try { vasRefreshBasicStatus_(); } catch (_) {}
+  try { vasProgressCheckStatus_(SpreadsheetApp.getActiveSpreadsheet()); } catch (_) {}
 }
 function onEdit(e) {
   // Light indicator refresh only: no automatic heavy aggregation.
   try { vasOnEditBasicStatus_(e); } catch (_) {}
+  try { vasProgressOnEdit_(e); } catch (_) {}
 }
 
 /**
@@ -115,7 +118,7 @@ function showTemplateHelp() {
     '1. 最初に「初期テンプレートを作成・確認」を実行します。\n' +
     '2. 30_分析設定で設定値を、31_マスタ編集でマスタを編集できます。\n' +
     '3. 上部メニューのCSV取込から、応募CSVと任意の求人CSVを全件アップロードできます。\n' +
-    '4. 基本分析は「基本分析を再集計」で更新します。進捗グラフ・カスタム集計は今後追加します。\n\n' +
+    '4. 基本分析・応募進捗はそれぞれ再集計メニューで更新します。カスタム集計は今後追加します。\n\n' +
     '空のテンプレートをコピーして、マイドライブ内で利用する設計です。'
   );
 }
