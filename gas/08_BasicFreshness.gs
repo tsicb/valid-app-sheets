@@ -37,7 +37,8 @@ function vasWriteAppliedBasicConditions_(ss,snapshot){
   home.getRange('B8').setValue(vasPeriodLabel_(o));
   home.getRange('B9').setValue(
     '対象：'+vasAgeLabel_(o.ageMin,o.ageMax)+
-    ' ／ ターゲット：'+vasAgeLabel_(o.targetMin,o.targetMax)
+    ' ／ ターゲット：'+vasAgeLabel_(o.targetMin,o.targetMax)+
+    (o.targetMin==null&&o.targetMax==null?'（年齢不明を除く）':'')
   );
   home.getRange('B15').setValue('基本分析反映済み');
   settings.getRange('B38').setValue('基本分析反映済み');
