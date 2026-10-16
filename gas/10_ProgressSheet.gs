@@ -76,9 +76,13 @@ function vasProgressOnEdit_(e) {
   // Progress mode and forecast checkbox are instant formula switches;
   // the only limited input is the number of Web comparison series.
   if(r.getRow()<=30&&r.getLastRow()>=30){
-    try{vasProgressSettings_(ss.getSheetByName('30_分析設定'));}
-    catch(e){ss.getSheetByName('41_応募進捗').getRange('A6')
-      .setValue(String(e.message||e));}
+    try{
+      vasProgressSettings_(ss.getSheetByName('30_分析設定'));
+      vasProgressCheckStatus_(ss);
+    }catch(e){
+      ss.getSheetByName('41_応募進捗').getRange('A6')
+        .setValue(String(e.message||e));
+    }
   }
 }
 function vasProgressEnsureChart_(sheet){
@@ -170,6 +174,8 @@ function applyProgressAnalysis(){
       result.comparisons[1]?.enabled?result.comparisons[1].label:'前々月',
       result.comparisons[2]?.enabled?result.comparisons[2].label:'前年同月'
     ]]);
+    view.getRange('F28:K28').setBackground(VAS_THEME.blue)
+      .setFontColor(VAS_THEME.white).setFontWeight('bold');
     view.getRange('F29:K59').setFormulas(vasProgressChartFormulas_());
     // Preserve the formula from the originally created template.
     if(view.getRange('B3').getFormula()!=="='30_分析設定'!B28")
