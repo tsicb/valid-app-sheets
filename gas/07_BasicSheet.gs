@@ -5,8 +5,10 @@ function applyBasicAnalysis(){
     if(vasStatus_()!=='READY')throw new Error('CSV全件取込が正常完了してから実行してください。');
     const ss=SpreadsheetApp.getActiveSpreadsheet();
     const settings=ss.getSheetByName('30_分析設定');
-    const snapshot=vasBasicSnapshotFromSheet_(settings);
-    const options=snapshot.options;
+    const snapshot=vasBasicSnapshotFromSheet_(
+      settings,ss.getSheetByName('31_マスタ編集')
+    );
+    const options={...snapshot.options,masters:snapshot.masters};
     const app=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
     const jobs=vasReadVisibleRange_(ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
     const result=vasCalculateBasic_(app,jobs,options);
@@ -33,7 +35,9 @@ function applyBasicAnalysis(){
       const n=1000;
       for(let offset=0;offset<result.rows.length;offset+=n)
         cache.getRange(2+offset,1,Math.min(n,result.rows.length-offset),13)
-          .setValues(result.rows.slice(offset,offset+n));
+          .setValues(result.rows.slice(offset,offset+n).map(r=>[
+            r[0],vasSafeCell_(r[1]),...r.slice(2)
+          ]));
     }
     // Keep selection labels separate from cache rows and away from state A:B.
     state.getRange('G2:H1000').clearContent();
@@ -54,7 +58,11 @@ function applyBasicAnalysis(){
         'MATCH($B$3,\'92_運用管理\'!H2:H,0))),"該当するデータはありません")'
       );
     }else basic.getRange('A9').setValue('現在利用できる基本分析項目はありません。');
-    const status=VAS_DISPLAY_ITEMS.map(([id])=>[result.available.includes(id)?'利用可能':'未取得']);
+    const supported=new Set(VAS_BASIC_AXES_.map(r=>r[0]));
+    const status=VAS_DISPLAY_ITEMS.map(([id])=>[
+      !supported.has(id)?'別機能':
+        result.available.includes(id)?'利用可能':'未取得'
+    ]);
     settings.getRange(5,10,status.length,1).setValues(status);
     const home=ss.getSheetByName('00_ホーム');
     const ratio=result.total?result.targetTotal/result.total:0;
