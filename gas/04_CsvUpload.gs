@@ -40,12 +40,34 @@ function vasImportLock_() {
   if(!lock||!lock.tryLock(30000))throw new Error('ほかの更新処理が実行中です。');
   return lock;
 }
-function vasStateGet_(key) {
+function vasStateSnapshot_() {
   const sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('92_運用管理');
-  const last=Math.max(sheet.getLastRow(),2);
-  const vals=sheet.getRange(2,1,last-1,2).getValues();
-  for(const [k,v] of vals)if(k===key)return v;
-  return '';
+  const last=sheet.getLastRow();
+  const vals=last>1?sheet.getRange(2,1,last-1,2).getValues():[];
+  return Object.fromEntries(vals.filter(r=>r[0]!=='' && r[0]!=null));
+}
+function vasStateGet_(key) {
+  return vasStateSnapshot_()[key]??'';
+}
+/**
+ * One Sheets read + one write for multiple state changes.
+ * Only columns A:B in the hidden 92_運用管理 tab are system-owned.
+ */
+function vasStateBulkSet_(updates) {
+  const sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('92_運用管理');
+  const last=sheet.getLastRow();
+  const values=last>1?sheet.getRange(2,1,last-1,2).getValues():[];
+  const index=new Map();
+  values.forEach((r,i)=>{if(r[0]!==''&&r[0]!=null)index.set(String(r[0]),i);});
+  for(const [key,value] of Object.entries(updates)) {
+    if(index.has(key))values[index.get(key)][1]=value;
+    else {index.set(key,values.length);values.push([key,value]);}
+  }
+  if(values.length){
+    if(sheet.getMaxRows()<values.length+1)
+      sheet.insertRowsAfter(sheet.getMaxRows(),values.length+1-sheet.getMaxRows());
+    sheet.getRange(2,1,values.length,2).setValues(values);
+  }
 }
 function vasStateSet_(key,value) {
   const sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('92_運用管理');
@@ -181,47 +203,89 @@ function beginVASImport(summary,expected) {
     const id=vasMakeId_();
     const prior=(state==='STAGING'||state==='PREPARED')
       ? String(vasStateGet_('previous_import_status')||'UNIMPORTED') : state;
-    vasStateSet_('previous_import_status',prior);
-    vasStateSet_('upload_session',id);
-    vasStateSet_('upload_started_ms',Date.now());
-    vasStateSet_('upload_summary',JSON.stringify({
-      incomingApplications:Number(summary.incomingApplications)||0,
-      duplicateCount:Number(summary.duplicateCount)||0,
-      totalApplications:Number(summary.totalApplications)||0,
-      matchedApplications:Number(summary.matchedApplications)||0,
-      embeddedApplications:Number(summary.embeddedApplications)||0,
-      jobRecords:Number(summary.jobRecords)||0,
-      imageTargets:Number(summary.imageTargets)||0
-    }));
-    for(const kind of names){
-      vasStateSet_('expected_'+kind,expected[kind]);
-      vasStateSet_('next_'+kind,0);
-    }
-    vasStateSet_('import_status','STAGING');
+    const stateUpdates={
+      previous_import_status:prior,
+      upload_session:id,
+      upload_started_ms:Date.now(),
+      upload_summary:JSON.stringify({
+        incomingApplications:Number(summary.incomingApplications)||0,
+        duplicateCount:Number(summary.duplicateCount)||0,
+        totalApplications:Number(summary.totalApplications)||0,
+        matchedApplications:Number(summary.matchedApplications)||0,
+        embeddedApplications:Number(summary.embeddedApplications)||0,
+        jobRecords:Number(summary.jobRecords)||0,
+        imageTargets:Number(summary.imageTargets)||0
+      }),
+      import_status:'STAGING'
+    };
+    names.forEach(kind=>{
+      stateUpdates['expected_'+kind]=expected[kind];
+      stateUpdates['next_'+kind]=0;
+    });
+    vasStateBulkSet_(stateUpdates);
     return {sessionId:id};
   } finally {lock.releaseLock();}
 }
 
+function vasAppendChunkLocked_(state,kind,index,rows) {
+  const spec=VAS_DATASETS_[kind];
+  if(!spec)throw new Error('不正なデータセットです。');
+  if(!Number.isInteger(index)||index<0)
+    throw new Error('不正なチャンク番号です。');
+  const expectedIndex=Number(state['next_'+kind])||0;
+  if(index<expectedIndex)return {ok:true,duplicate:true,rows:0};
+  if(index!==expectedIndex)throw new Error('データの送信順序が正しくありません。');
+  const validated=vasValidatedRows_(kind,rows);
+  const sheet=vasStageSheet_(spec);
+  const written=Math.max(0,sheet.getLastRow()-1);
+  const expected=Number(state['expected_'+kind])||0;
+  if(written+validated.length>expected)
+    throw new Error('予定件数を超える行を受信しました。');
+  if(validated.length){
+    vasEnsureRows_(sheet,written+validated.length+1);
+    sheet.getRange(written+2,1,validated.length,spec.headers.length).setValues(validated);
+  }
+  // Make the order cursor durable after the corresponding sheet write.
+  // A failed cursor write may cause a retry; callers must inspect the state.
+  vasStateSet_('next_'+kind,expectedIndex+1);
+  state['next_'+kind]=expectedIndex+1;
+  return {ok:true,duplicate:false,rows:written+validated.length};
+}
+function vasAssertUploadSession_(state,sessionId) {
+  if(!sessionId||String(state.upload_session)!==String(sessionId))
+    throw new Error('取込セッションが一致しません。最初からやり直してください。');
+  if(String(state.import_status)!=='STAGING')
+    throw new Error('このセッションは受付中ではありません。');
+}
 function appendVASImportChunk(sessionId,kind,index,rows) {
   const lock=vasImportLock_();
   try {
-    vasImportAssertId_(sessionId);
-    if(vasStatus_()!=='STAGING')throw new Error('このセッションは受付中ではありません。');
-    const expectedIndex=Number(vasStateGet_('next_'+kind))||0;
-    if(index<expectedIndex)return {ok:true,duplicate:true};
-    if(index!==expectedIndex)throw new Error('データの送信順序が正しくありません。');
-    const validated=vasValidatedRows_(kind,rows);
-    const spec=VAS_DATASETS_[kind],sheet=vasStageSheet_(spec);
-    const written=Math.max(0,sheet.getLastRow()-1);
-    if(written+validated.length>vasUploadExpected_(kind))
-      throw new Error('予定件数を超える行を受信しました。');
-    if(validated.length){
-      vasEnsureRows_(sheet,written+validated.length+1);
-      sheet.getRange(written+2,1,validated.length,spec.headers.length)
-        .setValues(validated);
+    const state=vasStateSnapshot_();
+    vasAssertUploadSession_(state,sessionId);
+    return vasAppendChunkLocked_(state,kind,index,rows);
+  } finally {lock.releaseLock();}
+}
+/**
+ * Transport optimization: several ordered chunks over ONE google.script.run.
+ * Keep the same 200-row and per-chunk size limits as the legacy API.
+ * Previous clients can continue to use appendVASImportChunk.
+ */
+function appendVASImportBatch(sessionId,packets) {
+  const lock=vasImportLock_();
+  try {
+    if(!Array.isArray(packets)||packets.length<1||packets.length>3)
+      throw new Error('一括転送は1～3チャンクで指定してください。');
+    const state=vasStateSnapshot_();
+    vasAssertUploadSession_(state,sessionId);
+    const results=[];
+    for(const packet of packets) {
+      if(!packet||typeof packet!=='object')
+        throw new Error('送信チャンクが不正です。');
+      results.push(vasAppendChunkLocked_(
+        state,packet.kind,packet.index,packet.rows
+      ));
     }
-    vasStateSet_('next_'+kind,expectedIndex+1);
-    return {ok:true,rows:written+validated.length};
+    return {ok:true,results};
   } finally {lock.releaseLock();}
 }
 
