@@ -1,7 +1,4 @@
-/**
- * Only functional menu commands are exposed in this setup-only phase.
- * CSV upload, settings recalculation and custom analysis are added later.
- */
+/** Bound-sheet menu, CSV upload and basic-analysis entry points. */
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('有効応募分析')
@@ -16,6 +13,11 @@ function onOpen() {
     .addSeparator()
     .addItem('使い方・現在の実装範囲', 'showTemplateHelp')
     .addToUi();
+  try { vasRefreshBasicStatus_(); } catch (_) {}
+}
+function onEdit(e) {
+  // Light indicator refresh only: no automatic heavy aggregation.
+  try { vasOnEditBasicStatus_(e); } catch (_) {}
 }
 
 /**
@@ -74,7 +76,7 @@ function setupTemplate() {
     ui.alert(
       created.length
         ? 'テンプレートの初期設定が完了しました。\n新規作成: ' +
-          created.length + 'タブ\n\n現在はレイアウトのみです。CSV取込・分析処理は次段階で追加します。'
+          created.length + 'タブ\n\nレイアウトを作成しました。CSV取込・基本分析はメニューから実行できます。'
         : 'テンプレートは既に作成済みです。設定値・マスタ・書式は変更していません。'
     );
   } catch (err) {
@@ -113,7 +115,7 @@ function showTemplateHelp() {
     '1. 最初に「初期テンプレートを作成・確認」を実行します。\n' +
     '2. 30_分析設定で設定値を、31_マスタ編集でマスタを編集できます。\n' +
     '3. 上部メニューのCSV取込から、応募CSVと任意の求人CSVを全件アップロードできます。\n' +
-    '4. 基本分析・進捗グラフ・カスタム集計は今後追加します。\n\n' +
+    '4. 基本分析は「基本分析を再集計」で更新します。進捗グラフ・カスタム集計は今後追加します。\n\n' +
     '空のテンプレートをコピーして、マイドライブ内で利用する設計です。'
   );
 }
