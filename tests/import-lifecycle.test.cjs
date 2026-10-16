@@ -71,9 +71,16 @@ class Workbook {
   deleteSheet(s){this.sheets.splice(this.sheets.indexOf(s),1);}
 }
 const ss=new Workbook();
+let flushCalls=0,failOnFlush=0;
 const SpreadsheetApp={
   getActiveSpreadsheet:()=>ss,
-  flush(){},
+  flush(){
+    flushCalls++;
+    if(failOnFlush&&flushCalls===failOnFlush){
+      failOnFlush=0;
+      throw new Error('simulated final commit flush interruption');
+    }
+  },
   getUi:()=>({alert(){}})
 };
 const LockService={getDocumentLock:()=>({tryLock:()=>true,releaseLock(){}})};
@@ -194,4 +201,15 @@ assert.throws(()=>app.appendVASImportBatch(interrupted,[
 assert.equal(app.cancelVASImport(interrupted).cancelled,true);
 assert.equal(ss.getSheetByName('20_突合データ').getRange(3,1).getValue(),'APP000002');
 
-process.stdout.write('CSV staging, Date coercion, batched publishing, rollback and cancellation passed.\n');
+// Failure after the READY state cell was written but BEFORE the commit
+// flush is acknowledged must not leave the new generation as active.
+const oldGeneration=app.vasStateGet_('active_generation');
+const failedCommitId=stage();
+failOnFlush=flushCalls+5; // three live-sheet flushes, one pre-commit, one commit
+assert.throws(()=>app.finalizeVASImport(failedCommitId),/simulated final commit flush interruption/);
+assert.equal(app.vasStatus_(),'READY');
+assert.equal(app.vasStateGet_('active_generation'),oldGeneration);
+assert.equal(ss.getSheetByName('20_突合データ').getRange(3,1).getValue(),'APP000002');
+assert.equal(ss.getSheetByName('98_復旧応募'),null);
+
+process.stdout.write('CSV staging, Date coercion, batched publishing, commit recovery and cancellation passed.\n');
