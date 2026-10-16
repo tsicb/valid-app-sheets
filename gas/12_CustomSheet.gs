@@ -36,7 +36,9 @@ function vasCustomRefreshStatus_(){
  if(!view||!setting)return;
  const state=vasStateSnapshot_();
  if(String(state.import_status)!=='READY')return;
- let label='カスタム分析を実行してください';
+ let label=state.custom_error==='更新中'?
+  '前回の出力が中断されました・カスタム分析を再実行してください':
+  'カスタム分析を実行してください';
  if(state.custom_applied_config){
   if(String(state.custom_generation)!==String(state.active_generation))
    label='CSV更新後・カスタム分析未反映';
