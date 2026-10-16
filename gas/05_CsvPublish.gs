@@ -94,7 +94,7 @@ function vasUpdateHomeAfterImport_(summary,generation) {
 }
 function finalizeVASImport(sessionId) {
   const lock=vasImportLock_();
-  let hasBackups=false;
+  let hasBackups=false, completionCommitted=false;
   try {
     vasImportAssertId_(sessionId);
     if(vasStatus_()!=='STAGING')throw new Error('このセッションは受付中ではありません。');
@@ -104,8 +104,13 @@ function finalizeVASImport(sessionId) {
        verification.jobs!==Number(sum.jobRecords))
       throw new Error('送信行数とアップロードサマリが一致しません。');
 
-    vasStateSet_('old_home_snapshot',JSON.stringify(vasSnapshotHome_()));
-    vasStateSet_('import_status','PREPARED');
+    vasStateBulkSet_({
+      old_home_snapshot:JSON.stringify(vasSnapshotHome_()),
+      previous_active_generation:vasStateGet_('active_generation'),
+      previous_last_import_at:vasStateGet_('last_import_at'),
+      previous_last_analysis_at:vasStateGet_('last_analysis_at'),
+      import_status:'PREPARED'
+    });
     const keys=Object.keys(VAS_DATASETS_);
     for(const kind of keys)vasCopyBackup_(VAS_DATASETS_[kind]);
     hasBackups=true;
@@ -122,6 +127,9 @@ function finalizeVASImport(sessionId) {
     }
     const generation=String(sessionId);
     vasUpdateHomeAfterImport_(sum,generation);
+    // Ensure all live tables and the dashboard are written before committing
+    // READY. If the commit itself fails, backups remain available to restore.
+    SpreadsheetApp.flush();
     vasStateBulkSet_({
       active_generation:generation,
       last_import_at:new Date(),
@@ -132,6 +140,7 @@ function finalizeVASImport(sessionId) {
       old_home_snapshot:''
     });
     SpreadsheetApp.flush();
+    completionCommitted=true;
 
     // Cleanup errors do not turn a successful publish into a false failure.
     try{vasCleanStages_();vasCleanBackups_();}
@@ -141,12 +150,16 @@ function finalizeVASImport(sessionId) {
     return {applications:verification.applications,jobs:verification.jobs,generation};
   } catch(e) {
     const state=vasStatus_();
-    if(state==='PUBLISHING'||(state==='PREPARED'&&hasBackups)) {
+    if(hasBackups && !completionCommitted &&
+        (state==='PUBLISHING'||state==='READY'||state==='PREPARED')) {
       try {
         vasRestoreBackups_();
         vasRestoreHomeSnapshot_();
         vasStateBulkSet_({
           import_status:String(vasStateGet_('previous_import_status')||'UNIMPORTED'),
+          active_generation:vasStateGet_('previous_active_generation'),
+          last_import_at:vasStateGet_('previous_last_import_at'),
+          last_analysis_at:vasStateGet_('previous_last_analysis_at'),
           last_import_error:'CSV更新失敗・前回データを復旧しました：'+String(e.message||e),
           upload_session:'',
           old_home_snapshot:''
