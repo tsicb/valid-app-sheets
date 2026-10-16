@@ -36,10 +36,10 @@ const ss={
 const settings=sheet('settings','30_分析設定');
 const home=sheet('home','00_ホーム');
 const control=sheet('state','92_運用管理');
-const context=new Function('SpreadsheetApp','Utilities','getState',
+const context=new Function('SpreadsheetApp','Utilities','getState','updateState',
   'const vasStateSnapshot_=()=>getState();\n'+source+
-  '\nreturn {VAS_DISPLAY_ITEMS,vasBasicSnapshotFromSheet_,vasWriteAppliedBasicConditions_,vasRefreshBasicStatus_,vasOnEditBasicStatus_,vasCompareBasicSnapshot_,setState:(s)=>{state=s;}};'
-)({getActiveSpreadsheet:()=>ss},{formatDate:()=>''},()=>state);
+  '\nreturn {VAS_DISPLAY_ITEMS,vasBasicSnapshotFromSheet_,vasWriteAppliedBasicConditions_,vasRefreshBasicStatus_,vasOnEditBasicStatus_,vasCompareBasicSnapshot_,setState:updateState};'
+)({getActiveSpreadsheet:()=>ss},{formatDate:()=>''},()=>state,s=>{state=s;});
 
 display=context.VAS_DISPLAY_ITEMS.map(([id,name,on])=>[id,name,on]);
 Object.assign(sheetValues.settings,{
