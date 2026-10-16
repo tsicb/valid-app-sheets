@@ -8,8 +8,10 @@ const VAS_BASIC_SETTING_CELLS_ = Object.freeze([
 ]);
 function vasBasicSnapshotFromSheet_(settings) {
   const input={};
+  // One range read instead of 8 individual Spreadsheet service calls.
+  const column=settings.getRange('B5:B18').getValues();
   VAS_BASIC_SETTING_CELLS_.forEach(a1=>{
-    input[a1]=settings.getRange(a1).getValue();
+    input[a1]=column[Number(a1.slice(1))-5][0];
   });
   const toggles=settings.getRange(5,7,VAS_DISPLAY_ITEMS.length,3).getValues();
   const enabled=new Map(toggles.map(r=>[String(r[0]),r[2]===true]));
