@@ -119,6 +119,19 @@ node tests/import-lifecycle.test.cjs
 - 今回の**差し替え／追加対象は4ファイル**：`CsvImport.html`、`CsvImportLogic.html`、`04_CsvUpload.gs`、新規 `CommonMasters.html`。Web版の共通コード変換マスタも取り込んで、求人原稿文字数の計算を合わせる。
 - 前回の取込が`STAGING`で止まっている場合は、他の取込が動作中でないことを確認して「有効応募分析 → 中断したCSV取込を破棄」を実行。既存テンプレートの再生成は不要。
 
+## 2026-10-16 実CSV保存時の型エラー・処理時間の改善
+
+- 実データで**分析対象2,453応募／求人CSV突合2,450応募**までプレビュー成功。その後、本番保存処理で「送信データに許可されない型」が発生（実環境の原因は未確定）。
+- コード調査で、Sheetsの`getValues()`が日付文字列を**Dateオブジェクト**として返し、既存の型ホワイトリストに拒否され得ることを確認。`04_CsvUpload.gs`で有効なDateを`Asia/Tokyo`の`yyyy-MM-dd`文字列へ正規化するよう修正。無効な値のエラーにはデータセット名・列名・分割送信内の行番号を付け、RAWセル内容は出さない。
+- `CsvImport.html`の転送上限を**100行／チャンク → 200行／チャンク**へ変更（既存GAS側の最大200行規則と一致）。ブラウザ側の正規化時間と、GAS受入準備・転送・本番反映の所要時間を分けて画面に表示する。
+- Date型を模擬シートに再現した`tests/import-lifecycle.test.cjs`を追加し、全件公開・途中障害からの復旧を含めてモックテスト通過。実Google Sheetsでの性能・型変換は引き続き再試行で確認する。
+- 今回の反映対象：**`gas/04_CsvUpload.gs` と `gas/CsvImport.html`**。スプレッドシートの再生成は不要。以前のA/B対応が未反映なら、`gas/CsvImportLogic.html`と`gas/CommonMasters.html`も合わせる。
+- CSV取込が途中中断して`STAGING`になっている場合は、「取込状態を確認」し、誰も実行中でないことを確認してから「中断したCSV取込を破棄」。`PUBLISHING`／`RECOVERY_REQUIRED`なら復旧フローに従う。
+
+### 別案：GitHub Pagesで加工後、Google Sheetsへファイルをインポート
+
+[Google Sheetsの公式ファイルインポート](https://support.google.com/docs/answer/9331167?hl=ja)はExcelファイルの「新しいシートを挿入」をサポートするため、Pagesで個人情報を削減した`.xlsx`（応募・求人・画像の3表）を作り、Sheetsへ取り込む方式を今後比較できる。ただし**入力済みタブの書式保持・同名タブ・取込後の自動切替**は別設計が必要で、Pagesへ移すだけではSheets側の集計速度が改善するわけではない。**現段階では採用未確定、Pages版の新規実装なし**。
+
 ## セキュリティ
 
 **このGitHubリポジトリは公開設定。** 求人／応募の生CSV、個人情報、実データ、アクセスキー、Google Apps ScriptのScript Properties、認証情報などをコミットしない。
