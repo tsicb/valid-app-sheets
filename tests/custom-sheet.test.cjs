@@ -131,8 +131,8 @@ core.applyCustomAnalysis();
 assert.equal(vals.getRange('A12').getValue(),'応募年月');
 assert.equal(vals.getRange('D12').getValue(),'行合計');
 assert.equal(vals.getRange('E12').getValue(),'Indeed');
-assert.equal(vals.getRange('F12').getValue(),'自社');
-assert.equal(vals.getRange('G12').getValue(),'SNS');
+assert.equal(vals.getRange('F12').getValue(),'SNS');
+assert.equal(vals.getRange('G12').getValue(),'自社');
 assert.equal(vals.getRange('A13').getValue(),'2026-09');
 assert.equal(vals.getRange('D13').getValue(),1);
 assert.equal(vals.getRange('A14').getValue(),'2026-10');
@@ -147,10 +147,10 @@ vals.getRange('B3').setValue('応募媒体');
 vals.getRange('E3').setValue('応募年月');
 vals.getRange('E4').setValue('ターゲット率');
 core.applyCustomAnalysis();
-assert.equal(vals.getRange('E12').getValue(),'2026-10');
-assert.equal(vals.getRange('F12').getValue(),'2026-09');
+assert.equal(vals.getRange('E12').getValue(),'2026-09');
+assert.equal(vals.getRange('F12').getValue(),'2026-10');
 assert.equal(vals.getRange('G12').getValue(),'');
-assert.equal(vals.getRange('D16').getValue(),1/2);
+assert.equal(vals.getRange('D16').getValue(),3/4);
 assert.equal(vals.getRange('D13').getValue(),1);
 // Re-run without changing settings: output size stable and no added tabs.
 core.applyCustomAnalysis();
@@ -158,7 +158,7 @@ assert.equal(ss.getSheets().length,6);
 // Duplicate axis is a user error; output stays unchanged.
 vals.getRange('E3').setValue('応募媒体');
 assert.throws(()=>core.applyCustomAnalysis(),/同じ分析軸/);
-assert.equal(vals.getRange('E12').getValue(),'2026-10');
+assert.equal(vals.getRange('E12').getValue(),'2026-09');
 vals.getRange('E3').setValue('応募年月');
 // A source change invalidates the applied analysis snapshot.
 settings.targetMin=30;
