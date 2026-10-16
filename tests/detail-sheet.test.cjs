@@ -115,9 +115,9 @@ assert.equal(view.getRange('D10').getValue(),1);
 assert.equal(view.getRange('A9').getValue(),
  '=IFERROR(IMAGE("https://ten.1049.cc/a.jpg",4,80,120),"")');
 assert.equal(view.getRange('A10').getValue(),'');
-assert.equal(tags.getRange('A9').getValue(),'B');
+assert.equal(tags.getRange('A9').getValue(),'A');
 assert.equal(tags.getRange('D9').getValue(),2);
-assert.equal(tags.getRange('A10').getValue(),'A');
+assert.equal(tags.getRange('A10').getValue(),'B');
 assert.equal(tags.getRange('A11').getValue(),'');
 assert.equal(tags.getRange('B11').getValue(),'（タグなし）');
 assert.equal(state.detail_generation,'G1');
