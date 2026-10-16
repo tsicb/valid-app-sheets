@@ -9,6 +9,7 @@ function onOpen() {
     .addItem('カスタム分析を実行', 'applyCustomAnalysis')
     .addItem('TOP画像・Indeedタグを再集計', 'applyDetailAnalysis')
     .addItem('TOP画像URLを取得', 'refreshTopImages')
+    .addItem('取得失敗した画像URLを再試行', 'retryFailedTopImages')
     .addItem('取込状態を確認', 'checkVASImportStatus')
     .addItem('中断したCSV取込を破棄', 'abandonVASImport')
     .addSeparator()
