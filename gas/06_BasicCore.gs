@@ -29,6 +29,7 @@ function vasCalculateBasic_(applicationRows,jobRows,options){
   const jobs=new Map(jobRows.map(r=>[vasStr_(r[0]),r]));
   const opts=options||{},start=opts.start||'',end=opts.end||'';
   const ageMin=opts.ageMin,ageMax=opts.ageMax,targetMin=opts.targetMin,targetMax=opts.targetMax;
+  const dayWidth=opts.monthDayWidth||7,hourWidth=opts.hourWidth||6;
   if(start&&end&&start>end)throw new Error('集計開始日が終了日より後です。');
   if(ageMin!=null&&ageMax!=null&&ageMin>ageMax)throw new Error('対象年齢範囲が不正です。');
   if(targetMin!=null&&targetMax!=null&&targetMin>targetMax)throw new Error('ターゲット年齢範囲が不正です。');
@@ -44,12 +45,20 @@ function vasCalculateBasic_(applicationRows,jobRows,options){
        (ageMax!=null&&(age==null||age>ageMax)))continue;
     const count=Number(a[10])||0;
     if(count<=0)continue;
-    const target=(targetMin==null&&targetMax==null)
-      ?true:(age!=null&&(targetMin==null||age>=targetMin)&&(targetMax==null||age<=targetMax));
+    // Web isTargetAge() never treats unknown age as a target,
+    // even when both age limits are blank.
+    const target=age!=null&&Number.isFinite(age)&&
+      (targetMin==null||age>=targetMin)&&(targetMax==null||age<=targetMax);
     const targetCount=target?count:0,ageIndex=vasAgeBucket_(a[13]);
     total+=count;targetTotal+=targetCount;
     const j=jobs.get(vasStr_(a[3]))||null;
     const note=j?vasStr_(j[11]).split(/\r?\n|<br\s*\/?>/i)[0]:'';
+    const monthDay=a[7]===''||a[7]==null?null:Number(a[7]);
+    const hour=a[9]===''||a[9]==null?null:Number(a[9]);
+    const monthDayStart=monthDay!=null&&Number.isInteger(monthDay)&&monthDay>=1&&monthDay<=31
+      ?Math.floor((monthDay-1)/dayWidth)*dayWidth+1:null;
+    const hourStart=hour!=null&&Number.isInteger(hour)&&hour>=0&&hour<=23
+      ?Math.floor(hour/hourWidth)*hourWidth:null;
     const values={
       age:VAS_AGE_LABELS[ageIndex],status:a[11],month:a[6],media:a[12],
       enterprise:a[1],gender:a[14],'name-script':a[15],residence:a[16],
@@ -58,7 +67,12 @@ function vasCalculateBasic_(applicationRows,jobRows,options){
       'job-prefecture':j?j[10]:a[20],
       'prefecture-match':a[17]===''?'':Number(a[17])===1?'一致':'不一致',
       'recruit-background':j?j[8]:'',
-      weekday:a[8],'month-day':a[7],hour:a[9],
+      weekday:a[8],
+      'month-day':monthDayStart===null?'（不明）':
+        monthDayStart+'-'+Math.min(monthDayStart+dayWidth-1,31)+'日',
+      hour:hourStart===null?'（不明）':
+        (hourWidth<=1?hourStart+'時台':
+          hourStart+'～'+Math.min(hourStart+hourWidth-1,23)+'時台'),
       'main-image':j&&j[1]==='JOB_CSV'?(vasStr_(j[14])?'あり':'なし'):'',
       'job-video':j&&j[1]==='JOB_CSV'?(Number(j[16])===1?'あり':'なし'):'',
       'note-detail':note
@@ -94,9 +108,16 @@ function vasParseSettings_ (values){
     if(x!=null&&(!Number.isInteger(x)||x<0||x>200))
       throw new Error('年齢設定には0～200の整数を指定してください。');
   }
+  const widths=[['月内応募日幅',val('B17')||7],['応募時間帯幅',val('B18')||6]];
+  for(const [name,value] of widths){
+    if(!Number.isInteger(Number(value))||Number(value)<1)
+      throw new Error(name+'は1以上の整数を指定してください。');
+  }
   return {
     start:val('B5')?vasDateKey_(val('B5')):'',
     end:val('B6')?vasDateKey_(val('B6')):'',
-    ageMin,ageMax,targetMin,targetMax
+    ageMin,ageMax,targetMin,targetMax,
+    monthDayWidth:Number(val('B17')||7),
+    hourWidth:Number(val('B18')||6)
   };
 }
