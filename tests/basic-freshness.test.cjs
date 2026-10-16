@@ -14,7 +14,7 @@ const sheet=(kind,name)=>({
     if(a1==='B5:B18'&&kind==='settings')return {
       getValues:()=>Array.from({length:14},(_,i)=>[sheetValues.settings['B'+(i+5)]??''])
     };
-    if(a1==='G5:I37'&&kind==='settings')return {
+    if((a1==='G5:I37'||(a1===5&&arguments[1]===7))&&kind==='settings')return {
       getValues:()=>display.map(([id,label,enabled])=>[id,label,enabled])
     };
     const values=sheetValues[kind];
@@ -36,10 +36,10 @@ const ss={
 const settings=sheet('settings','30_分析設定');
 const home=sheet('home','00_ホーム');
 const control=sheet('state','92_運用管理');
-const context=new Function('SpreadsheetApp','Utilities',
-  'const vasStateSnapshot_=()=>state;\n'+source+
+const context=new Function('SpreadsheetApp','Utilities','getState',
+  'const vasStateSnapshot_=()=>getState();\n'+source+
   '\nreturn {VAS_DISPLAY_ITEMS,vasBasicSnapshotFromSheet_,vasWriteAppliedBasicConditions_,vasRefreshBasicStatus_,vasOnEditBasicStatus_,vasCompareBasicSnapshot_,setState:(s)=>{state=s;}};'
-)({getActiveSpreadsheet:()=>ss},{formatDate:()=>''});
+)({getActiveSpreadsheet:()=>ss},{formatDate:()=>''},()=>state);
 
 display=context.VAS_DISPLAY_ITEMS.map(([id,name,on])=>[id,name,on]);
 Object.assign(sheetValues.settings,{
