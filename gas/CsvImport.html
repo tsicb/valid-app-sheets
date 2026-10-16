@@ -181,13 +181,17 @@
       id=prepared.sessionId;
       preparedAt=performance.now();
       phase='送信';
-      let total=datasets.reduce((a,k)=>a+chunks[k].length,0),done=0;
-      for(const k of datasets){
-        for(let i=0;i<chunks[k].length;i++){
-          await server('appendVASImportChunk',id,k,i,chunks[k][i]);
-          done++;
-          setStatus('データを転送しています。 '+done+'/'+total+' チャンク\n途中では現在の分析データを書き換えません。');
-        }
+      const packets=datasets.flatMap(kind=>
+        chunks[kind].map((rows,index)=>({kind,index,rows})));
+      let done=0;
+      for(let i=0;i<packets.length;i+=3){
+        // Bound both packet count and the original per-chunk payload size.
+        const batch=packets.slice(i,i+3);
+        await server('appendVASImportBatch',id,batch);
+        done+=batch.length;
+        setStatus('データを転送しています。 '+done+'/'+packets.length+' チャンク'+
+          '（GASへの通信 '+Math.ceil(done/3)+'回）\n'+
+          '途中では現在の分析データを書き換えません。');
       }
       transferredAt=performance.now();
       phase='最終反映';
