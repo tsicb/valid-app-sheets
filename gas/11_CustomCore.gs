@@ -305,7 +305,7 @@ function vasCustomCalculate_(apps,jobs,options) {
   ...sortedCols.map(label=>vasCustomMetric_(colTotals.get(label),metric))];
  return {
   rowAxes,colAxis,metric,scope,used:grand.count,
-  headers:[...rowAxes,'行合計',...sortedCols],
+  headers:[...Array.from({length:3},(_,i)=>rowAxes[i]||''),'行合計',...sortedCols],
   columnLabels:sortedCols,rowLabels:sortedRows.map(x=>x.labels),
   rows:values,totals,grand,
   numRows:values.length+2,numCols:4+sortedCols.length
