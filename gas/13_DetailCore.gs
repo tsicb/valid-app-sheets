@@ -13,7 +13,7 @@ function vasDetailTagMaster_(rows){
  for(const row of rows||[]){
   const id=vasStr_(row[0]),name=vasStr_(row[1]),active=row[2]===true;
   if(!id||!name||!active)continue;
-  if(names.has(id)&&names.get(id)!==name)duplicates.push(id);
+  if(names.has(id))duplicates.push(id);
   if(!names.has(id))names.set(id,name);
  }
  if(duplicates.length)throw new Error('Indeedタグ名称マスタに同一コードの重複があります。コードを確認してください：'+duplicates.slice(0,5).join(', '));
