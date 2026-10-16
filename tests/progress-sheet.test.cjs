@@ -70,6 +70,7 @@ class Builder{
  }
 }
 class Sheet{
+ getName(){return this.name;}
  constructor(name){this.name=name;this.cells=new Map();this.maxRows=1000;
   this.maxColumns=26;this.charts=[];}
  getRange(a,b,h,w){
