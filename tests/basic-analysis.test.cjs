@@ -43,4 +43,31 @@ const ageFiltered=ctx.vasCalculateBasic_(data,[job],{
 assert.equal(ageFiltered.total,1);
 assert.equal(ageFiltered.targetTotal,1);
 assert.throws(()=>ctx.vasCalculateBasic_(data,[job],{start:'2026-12-01',end:'2026-01-01'}));
-console.log('Basic analysis group counts, age buckets, date filters and targets passed.');
+// Web parity: unknown ages are NEVER targets, even if age limits are blank.
+const allAges=ctx.vasCalculateBasic_(data,[job],{
+ ageMin:null,ageMax:null,targetMin:null,targetMax:null
+});
+assert.equal(allAges.total,4);
+assert.equal(allAges.targetTotal,3);
+assert.equal(allAges.rows.find(r=>r[0]==='age'&&r[1]==='その他')[3],0);
+
+// Match the Web version's day-of-month and hour buckets.
+const timed=data.slice(0,3).map((r,i)=>{
+ const x=r.slice();x[7]=[1,8,31][i];x[9]=[0,7,23][i];return x;
+});
+const bucketed=ctx.vasCalculateBasic_(timed,[job],{
+ monthDayWidth:7,hourWidth:6
+});
+const dayLabels=bucketed.rows.filter(r=>r[0]==='month-day').map(r=>r[1]);
+const hourLabels=bucketed.rows.filter(r=>r[0]==='hour').map(r=>r[1]);
+assert.deepEqual(dayLabels.sort(),['1-7日','8-14日','29-31日'].sort());
+assert.deepEqual(hourLabels.sort(),['0～5時台','6～11時台','18～23時台'].sort());
+const widthInput={
+ B5:'',B6:'',B9:'',B10:'',B13:25,B14:39,B17:10,B18:3
+};
+const parsed=ctx.vasParseSettings_(widthInput);
+assert.equal(parsed.monthDayWidth,10);
+assert.equal(parsed.hourWidth,3);
+assert.equal(parsed.targetMin,25);
+assert.throws(()=>ctx.vasParseSettings_({...widthInput,B17:-1}));
+console.log('Basic analysis group counts, age target handling, and Web day/hour buckets passed.');
