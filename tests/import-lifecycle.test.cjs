@@ -77,7 +77,16 @@ const SpreadsheetApp={
   getUi:()=>({alert(){}})
 };
 const LockService={getDocumentLock:()=>({tryLock:()=>true,releaseLock(){}})};
-const Utilities={getUuid:()=>String(++Utilities.serial).padStart(32,'0'),serial:0};
+const Utilities={
+  getUuid:()=>String(++Utilities.serial).padStart(32,'0'),
+  formatDate:(date,tz,fmt)=>{
+    assert.equal(fmt,'yyyy-MM-dd');
+    return new Intl.DateTimeFormat('sv-SE',{
+      timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(date);
+  },
+  serial:0
+};
 const app=new Function('SpreadsheetApp','LockService','Utilities',src+
   '\nreturn {beginVASImport,appendVASImportChunk,finalizeVASImport,cancelVASImport,vasStateGet_,vasStatus_,VAS_APPLICATION_HEADERS,VAS_JOB_HEADERS,VAS_IMAGE_MASTER_HEADERS};'
 )(SpreadsheetApp,LockService,Utilities);
@@ -115,8 +124,13 @@ function stage(model,appRow=applicant('JOB000001',1)){
   return prep.sessionId;
 }
 const firstId=stage();
+// Reproduce Google Sheets' implicit date typing between the two data passes:
+// a YYYY-MM-DD input can be returned by getValues() as a Date object.
+ss.getSheetByName('95_作業応募').getRange(2,6)
+  .setValue(new Date('2026-10-15T15:00:00.000Z'));
 const first=app.finalizeVASImport(firstId);
 assert.equal(first.applications,1);
+assert.equal(ss.getSheetByName('20_突合データ').getRange(2,6).getValue(),'2026-10-16');
 assert.equal(app.vasStatus_(),'READY');
 assert.equal(ss.getSheetByName('20_突合データ').getRange(2,2).getValue(),'001');
 assert.equal(ss.getSheetByName('93_求人分析マスタ').getRange(2,12).getValue(),'求人備考1\n2行目');
