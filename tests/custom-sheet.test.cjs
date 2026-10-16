@@ -172,6 +172,27 @@ assert.equal(vals.getRange('A8').getValue(),'設定変更あり・カスタム�
 settings.targetMin=20;
 core.vasCustomRefreshStatus_();
 assert.equal(vals.getRange('A8').getValue(),'カスタム分析反映済み');
+// A mid-write error invalidates the applied state and survives reopen.
+const originalGetRange=vals.getRange.bind(vals);
+vals.getRange=function(...args) {
+ const range=originalGetRange(...args);
+ if(args[0]===13 && typeof args[0]==='number') {
+  range.setValues=()=>{throw new Error('simulated output interruption');};
+ }
+ return range;
+};
+assert.throws(()=>core.applyCustomAnalysis(),/simulated output interruption/);
+vals.getRange=originalGetRange;
+assert.equal(state.custom_applied_config,'');
+assert.equal(state.custom_error,'更新中');
+assert.equal(vals.getRange('A8').getValue(),'カスタム分析の出力失敗・再実行が必要です');
+core.vasCustomRefreshStatus_();
+assert.equal(vals.getRange('A8').getValue(),
+ '前回の出力が中断されました・カスタム分析を再実行してください');
+core.applyCustomAnalysis();
+assert.equal(state.custom_error,'');
+assert.equal(vals.getRange('A8').getValue().startsWith('カスタム分析反映済み'),true);
+
 // The preflight must reject global cell-capacity overflow without truncation.
 const fake={getSheets:()=>[{
  getMaxRows:()=>9000000,getMaxColumns:()=>2
