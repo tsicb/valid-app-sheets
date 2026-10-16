@@ -195,6 +195,8 @@ function applyDetailAnalysis(){
   vasStateBulkSet_({detail_update_status:'WRITING',detail_applied_snapshot:''});
   imageSheet.getRange('B3').setValue('専用集計を更新中です');
   tagSheet.getRange('B3').setValue('専用集計を更新中です');
+  if(result.images.length)imageSheet.getRange(9,2,result.images.length,1).setNumberFormat('@');
+  if(result.tags.length)tagSheet.getRange(9,1,result.tags.length,1).setNumberFormat('@');
   vasDetailWriteRows_(imageSheet,result.images,{rate:6},
     row=>vasDetailImageRows_({images:[row]},urls)[0]);
   const rendered=vasDetailSetImageFormulas_(imageSheet,result.images,urls);
