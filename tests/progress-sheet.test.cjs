@@ -93,6 +93,7 @@ const sheets=new Map(['30_分析設定','31_マスタ編集',
  '20_突合データ','91_進捗キャッシュ','41_応募進捗'].map(n=>[n,new Sheet(n)]));
 const sheet=n=>sheets.get(n);
 sheet('30_分析設定').getRange('B28:B30').setValues([['日別'],[true],[3]]);
+sheet('30_分析設定').getRange('B13:B14').setValues([[20],[39]]);
 sheet('41_応募進捗').getRange('A28:D28').setValues([[
  '応募年月','応募数','ターゲット応募数','ターゲット率'
 ]]);
@@ -109,8 +110,9 @@ const ui={alert:x=>submitted.push(x)};
 let states={active_generation:'G1',import_status:'READY'};
 const deps={
  SpreadsheetApp:{
-  getActiveSpreadsheet:()=>({getSheetByName:sheet,flush(){}}),
-  getUi:()=>ui
+  getActiveSpreadsheet:()=>({getSheetByName:sheet}),
+  getUi:()=>ui,
+  flush(){}
  },
  Utilities:{formatDate:()=>{throw Error('unexpected date')}},
  Charts:{ChartType:{COMBO:'COMBO'}},
@@ -160,6 +162,7 @@ assert.equal(view.getCharts().length,1);
 assert.equal(view.getRange('A6').getDisplayValue().startsWith('応募進捗反映済み'),true);
 // Date/age changes flag chart as stale but keep existing data.
 opts.ageMin=30;
+sheet('30_分析設定').getRange('B9').setValue(30);
 context.vasProgressOnEdit_({range:{
  getSheet:()=>sheet('30_分析設定'),getRow:()=>9,getLastRow:()=>9,
  getColumn:()=>2,getLastColumn:()=>2
@@ -167,6 +170,7 @@ context.vasProgressOnEdit_({range:{
 assert.equal(view.getRange('A6').getValue(),
  '期間・年齢設定変更あり：応募進捗を再集計');
 opts.ageMin=null;
+sheet('30_分析設定').getRange('B9').setValue('');
 context.vasProgressCheckStatus_({getSheetByName:sheet});
 assert.equal(view.getRange('A6').getValue(),'応募進捗反映済み');
 // An empty time window removes stale rows from cache and month listing.
