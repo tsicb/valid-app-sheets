@@ -6,6 +6,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('有効応募分析')
     .addItem('CSV取込・全件更新', 'openCsvDialog')
+    .addItem('基本分析を再集計', 'applyBasicAnalysis')
     .addItem('取込状態を確認', 'checkVASImportStatus')
     .addItem('中断したCSV取込を破棄', 'abandonVASImport')
     .addSeparator()
