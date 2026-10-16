@@ -143,6 +143,15 @@ node tests/import-lifecycle.test.cjs
 
 [Google Sheetsの公式ファイルインポート](https://support.google.com/docs/answer/9331167?hl=ja)はExcelファイルの「新しいシートを挿入」をサポートするため、Pagesで個人情報を削減した`.xlsx`（応募・求人・画像の3表）を作り、Sheetsへ取り込む方式を今後比較できる。ただし**入力済みタブの書式保持・同名タブ・取込後の自動切替**は別設計が必要で、Pagesへ移すだけではSheets側の集計速度が改善するわけではない。**現段階では採用未確定、Pages版の新規実装なし**。
 
+## 基本分析の初版（2026-10-16）
+
+- [基本分析v0.1・反映手順](docs/BASIC_ANALYSIS_V01.md)
+- 新規 `gas/06_BasicCore.gs`：保存済み応募・求人から20項目の集計を生成。期間・対象年齢・ターゲット年齢に対応。
+- 新規 `gas/07_BasicSheet.gs`：`90_基本集計キャッシュ`へ書込、`40_基本分析`のB3プルダウンを`FILTER`関数で即時切替。
+- 既存 `gas/01_EntryPoint.gs`：上部メニュー「基本分析を再集計」を追加。
+- 既存のCSV取込やタブは再生成不要。最新2ファイルを追加し、`01_EntryPoint.gs`だけ差し替える。
+- 対応外のKW・給与帯・Indeedタグ数・画像枚数等は未実装。基本分析を除くグラフ・カスタムは次工程。
+
 ## セキュリティ
 
 **このGitHubリポジトリは公開設定。** 求人／応募の生CSV、個人情報、実データ、アクセスキー、Google Apps ScriptのScript Properties、認証情報などをコミットしない。
