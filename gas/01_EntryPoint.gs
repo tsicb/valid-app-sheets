@@ -7,6 +7,8 @@ function onOpen() {
     .addItem('応募進捗を再集計', 'applyProgressAnalysis')
     .addItem('カスタム分析候補を更新', 'refreshCustomAxes')
     .addItem('カスタム分析を実行', 'applyCustomAnalysis')
+    .addItem('TOP画像・Indeedタグを再集計', 'applyDetailAnalysis')
+    .addItem('TOP画像URLを取得', 'refreshTopImages')
     .addItem('取込状態を確認', 'checkVASImportStatus')
     .addItem('中断したCSV取込を破棄', 'abandonVASImport')
     .addSeparator()
@@ -19,12 +21,14 @@ function onOpen() {
   try { vasRefreshBasicStatus_(); } catch (_) {}
   try { vasProgressCheckStatus_(SpreadsheetApp.getActiveSpreadsheet()); } catch (_) {}
   try { vasCustomRefreshStatus_(); } catch (_) {}
+  try { vasDetailRefreshStatus_(); } catch (_) {}
 }
 function onEdit(e) {
   // Light indicator refresh only: no automatic heavy aggregation.
   try { vasOnEditBasicStatus_(e); } catch (_) {}
   try { vasProgressOnEdit_(e); } catch (_) {}
   try { vasCustomOnEdit_(e); } catch (_) {}
+  try { vasDetailOnEdit_(e); } catch (_) {}
 }
 
 /**
