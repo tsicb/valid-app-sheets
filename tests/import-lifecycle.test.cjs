@@ -88,7 +88,7 @@ const Utilities={
   serial:0
 };
 const app=new Function('SpreadsheetApp','LockService','Utilities',src+
-  '\nreturn {beginVASImport,appendVASImportChunk,finalizeVASImport,cancelVASImport,vasStateGet_,vasStatus_,VAS_APPLICATION_HEADERS,VAS_JOB_HEADERS,VAS_IMAGE_MASTER_HEADERS};'
+  '\nreturn {beginVASImport,appendVASImportChunk,appendVASImportBatch,finalizeVASImport,cancelVASImport,vasStateGet_,vasStatus_,VAS_APPLICATION_HEADERS,VAS_JOB_HEADERS,VAS_IMAGE_MASTER_HEADERS};'
 )(SpreadsheetApp,LockService,Utilities);
 function seed(name,headers,data=[]){
   const s=ss.insertSheet(name);
@@ -155,4 +155,43 @@ assert.equal(app.vasStatus_(),'STAGING');
 assert.equal(app.cancelVASImport(cancelId).cancelled,true);
 assert.equal(app.vasStatus_(),'READY');
 assert.equal(ss.getSheetByName('20_突合データ').getRange(2,2).getValue(),'001');
-process.stdout.write('CSV staging, publishing, rollback and cancellation passed.\n');
+// Batch multiple ordered CSV chunks into a single Apps Script invocation.
+const batchSession=app.beginVASImport(
+  {incomingApplications:2,totalApplications:2,jobRecords:1,imageTargets:1,matchedApplications:2},
+  {applicationData:2,jobAnalysisMaster:1,imageCandidates:1}
+).sessionId;
+const secondApplicant=applicant('JOB000001',1);
+secondApplicant[0]='APP000002';
+secondApplicant[5]='2026-10-17';
+const batched=app.appendVASImportBatch(batchSession,[
+  {kind:'applicationData',index:0,rows:[applicant('JOB000001',1)]},
+  {kind:'applicationData',index:1,rows:[secondApplicant]},
+  {kind:'jobAnalysisMaster',index:0,rows:[job('JOB000001')]}
+]);
+assert.equal(batched.ok,true);
+assert.equal(batched.results.length,3);
+assert.equal(batched.results[1].rows,2);
+const retried=app.appendVASImportBatch(batchSession,[
+  {kind:'applicationData',index:1,rows:[secondApplicant]}
+]);
+assert.equal(retried.results[0].duplicate,true);
+app.appendVASImportBatch(batchSession,[
+  {kind:'imageCandidates',index:0,rows:[image]}
+]);
+const published=app.finalizeVASImport(batchSession);
+assert.equal(published.applications,2);
+assert.equal(ss.getSheetByName('20_突合データ').getRange(3,1).getValue(),'APP000002');
+assert.equal(app.vasStatus_(),'READY');
+
+// An invalid packet order aborts without modifying the previously published data.
+const interrupted=app.beginVASImport(
+  {incomingApplications:1,totalApplications:1,jobRecords:0,imageTargets:0},
+  {applicationData:1,jobAnalysisMaster:0,imageCandidates:0}
+).sessionId;
+assert.throws(()=>app.appendVASImportBatch(interrupted,[
+  {kind:'applicationData',index:5,rows:[applicant('JOB000001',1)]}
+]),/送信順序/);
+assert.equal(app.cancelVASImport(interrupted).cancelled,true);
+assert.equal(ss.getSheetByName('20_突合データ').getRange(3,1).getValue(),'APP000002');
+
+process.stdout.write('CSV staging, Date coercion, batched publishing, rollback and cancellation passed.\n');
