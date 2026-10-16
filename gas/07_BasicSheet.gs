@@ -5,18 +5,15 @@ function applyBasicAnalysis(){
     if(vasStatus_()!=='READY')throw new Error('CSV全件取込が正常完了してから実行してください。');
     const ss=SpreadsheetApp.getActiveSpreadsheet();
     const settings=ss.getSheetByName('30_分析設定');
-    const cells=['B5','B6','B9','B10','B13','B14'];
-    const input={};
-    cells.forEach(a=>input[a]=settings.getRange(a).getValue());
-    const options=vasParseSettings_(input);
+    const snapshot=vasBasicSnapshotFromSheet_(settings);
+    const options=snapshot.options;
     const app=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
     const jobs=vasReadVisibleRange_(ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
     const result=vasCalculateBasic_(app,jobs,options);
     const cache=ss.getSheetByName('90_基本集計キャッシュ');
     const basic=ss.getSheetByName('40_基本分析');
     const state=ss.getSheetByName('92_運用管理');
-    const toggles=settings.getRange(5,7,VAS_DISPLAY_ITEMS.length,3).getValues();
-    const enabled=new Map(toggles.map(r=>[String(r[0]),r[2]===true]));
+    const enabled=new Map(snapshot.enabled);
     const labels=VAS_BASIC_AXES_.filter(([id])=>result.available.includes(id)&&enabled.get(id));
     // Preflight before touching output: spill height and every old header.
     const actual=cache.getRange(1,1,1,13).getDisplayValues()[0];
@@ -70,9 +67,16 @@ function applyBasicAnalysis(){
     basic.getRange('H5').setValue(new Date()).setNumberFormat('yyyy-mm-dd hh:mm');
     basic.getRange('D3').setValue('分析済み');
     home.getRange('B13').setValue(new Date()).setNumberFormat('yyyy-mm-dd hh:mm');
-    home.getRange('B15').setValue('基本分析反映済み');
-    settings.getRange('B38').setValue('基本分析反映済み');
-    vasStateBulkSet_({last_analysis_at:new Date(),basic_analysis_generation:vasStateGet_('active_generation')});
+    // Persist "applied" settings only after the cache and KPIs have been
+    // written. Live settings are not used directly for the home display.
+    SpreadsheetApp.flush();
+    vasStateBulkSet_({
+      last_analysis_at:new Date(),
+      basic_analysis_generation:vasStateGet_('active_generation'),
+      basic_applied_config:JSON.stringify(snapshot)
+    });
+    vasWriteAppliedBasicConditions_(ss,snapshot);
+    settings.getRange('C3').setValue('設定変更後は「基本分析を再集計」を実行してください。');
     SpreadsheetApp.flush();
     SpreadsheetApp.getUi().alert('基本分析を更新しました。\n対象応募：'+result.total+
       ' 件\n利用可能な基本分析：'+labels.length+'項目。\n40_基本分析のB3で切替できます。');
