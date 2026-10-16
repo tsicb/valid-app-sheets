@@ -11,11 +11,21 @@ function vasCustomSelection_(view){
   metric:vasStr_(view.getRange('E4').getValue())||'応募数'
  };
 }
+function vasCustomSnapshot_(settings,masterSheet){
+ const snapshot=vasBasicSnapshotFromSheet_(settings,masterSheet);
+ // TOP画像ファイル名 is custom-only. It is not in the 29 basic axes,
+ // so the basic snapshot alone does not capture its display checkbox.
+ const index=VAS_DISPLAY_ITEMS.findIndex(r=>r[0]==='top-image-detail');
+ snapshot.topImageVisible=index>=0&&
+   settings.getRange(index+5,9).getValue()===true;
+ return snapshot;
+}
 function vasCustomSignature_(selection,snapshot){
  return JSON.stringify({
   selection,
   options:snapshot.options,
   enabled:snapshot.enabled,
+  topImageVisible:snapshot.topImageVisible,
   masters:snapshot.masters
  });
 }
@@ -32,7 +42,7 @@ function vasCustomRefreshStatus_(){
    label='CSV更新後・カスタム分析未反映';
   else{
    try {
-    const snap=vasBasicSnapshotFromSheet_(
+    const snap=vasCustomSnapshot_(
       setting,ss.getSheetByName('31_マスタ編集'));
     label=vasCustomSignature_(vasCustomSelection_(view),snap)===
       String(state.custom_applied_config)?
@@ -114,13 +124,14 @@ function vasCustomSources_(){
  if(vasStatus_()!=='READY')
   throw new Error('まずCSV全件取込を完了してください。');
  const settings=ss.getSheetByName('30_分析設定');
- const snapshot=vasBasicSnapshotFromSheet_(
+ const snapshot=vasCustomSnapshot_(
   settings,ss.getSheetByName('31_マスタ編集'));
  const apps=vasReadVisibleRange_(
   ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
  const jobs=vasReadVisibleRange_(
   ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
  const enabled=new Map(snapshot.enabled);
+ enabled.set('top-image-detail',snapshot.topImageVisible);
  const choices=vasCustomAxisChoices_(apps,jobs,snapshot.masters,enabled);
  return {ss,snapshot,apps,jobs,choices};
 }
