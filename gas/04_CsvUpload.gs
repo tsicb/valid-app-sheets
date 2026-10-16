@@ -93,6 +93,14 @@ function vasMakeId_() {
 }
 function vasSafeCell_(value) {
   if(value===null||value===undefined)return '';
+  // Sheets may parse an incoming YYYY-MM-DD text value as a date.
+  // getValues() then returns a Date object on the publish/rollback pass.
+  // Restore its canonical date-only representation; don't reject the batch.
+  if(value instanceof Date){
+    if(!Number.isFinite(value.getTime()))
+      throw new Error('無効な日付データが含まれています。');
+    return Utilities.formatDate(value,'Asia/Tokyo','yyyy-MM-dd');
+  }
   if(typeof value==='number'){
     if(!Number.isFinite(value))throw new Error('数値に無効な値が含まれています。');
     return value;
@@ -116,7 +124,14 @@ function vasValidatedRows_(kind,rows) {
   return rows.map((r,i)=>{
     if(!Array.isArray(r)||r.length!==spec.headers.length)
       throw new Error('データの列数が一致しません：'+kind+' の '+(i+1)+' 行目');
-    return r.map(vasSafeCell_);
+    return r.map((value,column)=>{
+      try {return vasSafeCell_(value);}
+      catch(error) {
+        // Never include the raw CSV cell content in error messages or logs.
+        throw new Error(kind+' の送信行 '+(i+1)+'、列「'+spec.headers[column]+
+          '」：'+String(error.message||error));
+      }
+    });
   });
 }
 function vasEnsureRows_(sheet,n) {
