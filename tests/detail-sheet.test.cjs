@@ -172,6 +172,18 @@ const batch=core.vasDetailPendingImages_([
 ],1);
 assert.equal(batch.pending.length,1);
 assert.equal(batch.remaining,1);
+const next=core.vasDetailPendingImages_([
+ ['failed.jpg','888','','取得失敗',''],
+ ['fresh.jpg','999','','未取得','']
+],1);
+assert.equal(next.pending[0].name,'fresh.jpg',
+ 'failed first rows must not starve untried files');
+assert.equal(core.vasDetailPendingImages_([
+ ['failed.jpg','888','','取得失敗','']
+],1).pending.length,0);
+assert.equal(core.vasDetailPendingImages_([
+ ['failed.jpg','888','','取得失敗','']
+],1,true).pending.length,1);
 const fetched=core.vasDetailResolveImageBatch_([
  {name:'a',ids:['123','456']},{name:'b',ids:['900']}
 ],requests=>requests.map(r=>({
