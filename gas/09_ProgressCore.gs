@@ -122,13 +122,13 @@ function vasProgressCalculate_(applications,options) {
   // Faithful to Web: rate observed within selected period, projected
   // over the entire calendar month's day count.
   const projection=latestDay<totalDays?
-    vasProgressRound(currentTotal/elapsed*totalDays):null;
+    vasProgressRound_(currentTotal/elapsed*totalDays):null;
   const forecast=Array(31).fill(null);
   if(projection!==null&&latestDay<totalDays){
     forecast[latestDay-1]=currentTotal; // join forecast line to actual
     const remaining=totalDays-latestDay;
     for(let day=latestDay+1;day<=totalDays;day++)
-      forecast[day-1]=vasProgressRound(
+      forecast[day-1]=vasProgressRound_(
         currentTotal+(projection-currentTotal)*(day-latestDay)/remaining
       );
   }
