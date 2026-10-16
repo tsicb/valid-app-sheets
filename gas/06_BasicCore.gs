@@ -108,7 +108,8 @@ function vasParseSettings_ (values){
     if(x!=null&&(!Number.isInteger(x)||x<0||x>200))
       throw new Error('年齢設定には0～200の整数を指定してください。');
   }
-  const widths=[['月内応募日幅',val('B17')||7],['応募時間帯幅',val('B18')||6]];
+  const widthValue=(key,defaultValue)=>val(key)===''||val(key)==null?defaultValue:Number(val(key));
+  const widths=[['月内応募日幅',widthValue('B17',7)],['応募時間帯幅',widthValue('B18',6)]];
   for(const [name,value] of widths){
     if(!Number.isInteger(Number(value))||Number(value)<1)
       throw new Error(name+'は1以上の整数を指定してください。');
@@ -117,7 +118,7 @@ function vasParseSettings_ (values){
     start:val('B5')?vasDateKey_(val('B5')):'',
     end:val('B6')?vasDateKey_(val('B6')):'',
     ageMin,ageMax,targetMin,targetMax,
-    monthDayWidth:Number(val('B17')||7),
-    hourWidth:Number(val('B18')||6)
+    monthDayWidth:widthValue('B17',7),
+    hourWidth:widthValue('B18',6)
   };
 }
