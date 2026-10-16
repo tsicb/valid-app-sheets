@@ -183,14 +183,22 @@
       phase='送信';
       const packets=datasets.flatMap(kind=>
         chunks[kind].map((rows,index)=>({kind,index,rows})));
+      const batches=[];
+      let batch=[],batchChars=0;
+      for(const packet of packets){
+        const size=JSON.stringify(packet).length;
+        if(batch.length&&(batch.length>=3||batchChars+size>250000)){
+          batches.push(batch);batch=[];batchChars=0;
+        }
+        batch.push(packet);batchChars+=size;
+      }
+      if(batch.length)batches.push(batch);
       let done=0;
-      for(let i=0;i<packets.length;i+=3){
-        // Bound both packet count and the original per-chunk payload size.
-        const batch=packets.slice(i,i+3);
-        await server('appendVASImportBatch',id,batch);
-        done+=batch.length;
+      for(let i=0;i<batches.length;i++){
+        await server('appendVASImportBatch',id,batches[i]);
+        done+=batches[i].length;
         setStatus('データを転送しています。 '+done+'/'+packets.length+' チャンク'+
-          '（GASへの通信 '+Math.ceil(done/3)+'回）\n'+
+          '（GASへの通信 '+(i+1)+'/'+batches.length+' 回）\n'+
           '途中では現在の分析データを書き換えません。');
       }
       transferredAt=performance.now();
