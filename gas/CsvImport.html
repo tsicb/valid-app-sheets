@@ -103,7 +103,9 @@
     VAS_IMPORT.validateInput(parsed,kind);
     return {parsed,encoding:enc};
   }
+  const elapsed=ms=>(ms/1000).toFixed(1)+'秒';
   $('check').addEventListener('click',async()=>{
+    const parseStarted=performance.now();
     if(state.running)return;
     if(!state.apps.length){setStatus('応募CSVを1ファイル以上選択してください。','error');return;}
     setBusy(true);setStatus('CSVをブラウザ内で読み込み、個人情報を除外したデータを作成しています。');
@@ -144,7 +146,7 @@
       }
       $('warn').textContent=issues.join('\n');
       $('preview').style.display='';
-      setStatus('CSVの読込と突合が完了しました。件数を確認し「全件更新を実行」を押してください。','done');
+      setStatus('CSVの読込と突合が完了しました（ブラウザ内処理：'+elapsed(performance.now()-parseStarted)+'）。件数を確認し「全件更新を実行」を押してください。','done');
     }catch(e){state.model=null;setStatus(String(e.message||e),'error');}
     finally{setBusy(false);}
   });
@@ -154,7 +156,8 @@
     for(const row of rows){
       const size=JSON.stringify(row).length;
       if(size>maxChunkCells)throw new Error('1行のデータが取込上限を超えています。');
-      if(current.length&&(current.length>=100||chars+size>maxChunkCells)){
+      // GAS accepts up to 200 rows per chunk; halve round-trip calls.
+      if(current.length&&(current.length>=200||chars+size>maxChunkCells)){
         out.push(current);current=[];chars=0;
       }
       current.push(row);chars+=size;
@@ -168,12 +171,16 @@
     const ok=confirm('現在の応募・求人・画像マスタを、今回選んだCSVで全件置換します。実行しますか？');
     if(!ok)return;
     setBusy(true);let id='';
+    const started=performance.now();
+    let preparedAt=started, transferredAt=started, phase='準備';
     try {
       const datasets=['applicationData','jobAnalysisMaster','imageCandidates'];
       const chunks=Object.fromEntries(datasets.map(k=>[k,makeChunks(m[k])]));
       setStatus('データの安全な受入準備をしています。');
       const prepared=await server('beginVASImport',m.summary,Object.fromEntries(datasets.map(k=>[k,m[k].length])));
       id=prepared.sessionId;
+      preparedAt=performance.now();
+      phase='送信';
       let total=datasets.reduce((a,k)=>a+chunks[k].length,0),done=0;
       for(const k of datasets){
         for(let i=0;i<chunks[k].length;i++){
@@ -182,13 +189,17 @@
           setStatus('データを転送しています。 '+done+'/'+total+' チャンク\n途中では現在の分析データを書き換えません。');
         }
       }
+      transferredAt=performance.now();
+      phase='最終反映';
       setStatus('全データを検証して保存しています。\n処理中はこの画面を閉じないでください。');
       const saved=await server('finalizeVASImport',id);
       state.model=null;$('save').disabled=true;
-      setStatus('全件更新が正常に完了しました。\n応募 '+saved.applications+' 件 ／ 求人 '+saved.jobs+' 件。\n集計機能は今後の工程で実装します。','done');
+      setStatus('全件更新が正常に完了しました。\n応募 '+saved.applications+' 件 ／ 求人 '+saved.jobs+' 件。'+
+        '\n処理時間：準備 '+elapsed(preparedAt-started)+'／送信 '+elapsed(transferredAt-preparedAt)+'／反映 '+elapsed(performance.now()-transferredAt)+
+        '\n集計機能は今後の工程で実装します。','done');
     }catch(e){
       if(id){try{await server('cancelVASImport',id);}catch(_){}}
-      setStatus('更新を完了できませんでした。\n'+String(e.message||e)+
+      setStatus('更新を完了できませんでした（'+phase+'フェーズ、経過 '+elapsed(performance.now()-started)+'）。\n'+String(e.message||e)+
         '\n別のCSV取込中と表示される場合：シートの「有効応募分析 → 取込状態を確認」でSTAGINGか確認し、「中断したCSV取込を破棄」を実行してください。'+
         '\nPUBLISHING／RECOVERY_REQUIREDの場合は中断破棄せず、旧データ復旧の操作を確認してください。','error');
     }finally{setBusy(false);}
