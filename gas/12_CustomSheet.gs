@@ -177,8 +177,11 @@ function vasCustomPublish_(ss,view,result,snapshot,selection){
  const previousRows=Math.max(0,Number(state.custom_output_rows)||0);
  const previousCols=Math.max(0,Number(state.custom_output_cols)||0);
  const {neededRows,neededCols}=vasCustomPreflight_(ss,view,result);
- vasEnsureRows_(view,neededRows);
- vasEnsureColumns_(view,neededCols);
+ vasEnsureRows_(view,Math.max(neededRows,11+previousRows));
+ vasEnsureColumns_(view,Math.max(neededCols,previousCols));
+ // Record a pending write before clearing any prior report cells.
+ vasStateBulkSet_({custom_applied_config:'',custom_error:'更新中'});
+ view.getRange('A8').setValue('カスタム分析を更新中です。処理終了までお待ちください。');
  const clearRows=Math.max(previousRows,neededRows-11,1);
  const clearCols=Math.max(previousCols,neededCols,5);
  // All writes restricted to A12 onward; keep user colors and column widths.
@@ -211,6 +214,7 @@ function vasCustomPublish_(ss,view,result,snapshot,selection){
   custom_applied_config:vasCustomSignature_(selection,snapshot),
   custom_output_rows:Math.max(1,body.length+2),
   custom_output_cols:neededCols,
+  custom_error:'',
   custom_last_calculated_at:new Date()
  });
  view.getRange('A8').setValue(
@@ -243,6 +247,14 @@ function applyCustomAnalysis(){
    '列カテゴリ：'+result.columnLabels.length+'種類。'
   );
  }catch(e){
+  // Partially written results must never remain labeled as complete.
+  try {
+   if(vasStateGet_('custom_error')==='更新中'){
+    SpreadsheetApp.getActiveSpreadsheet()
+     .getSheetByName('42_カスタム分析')
+     .getRange('A8').setValue('カスタム分析の出力失敗・再実行が必要です');
+   }
+  }catch(_){}
   SpreadsheetApp.getUi().alert('カスタム分析を更新できませんでした。\n'+
    String(e.message||e));
   throw e;
