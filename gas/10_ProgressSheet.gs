@@ -57,8 +57,29 @@ function vasProgressCheckStatus_(ss){
         ?'期間・年齢設定変更あり：応募進捗を再集計':'応募進捗反映済み';
     }catch(_){label='応募進捗の設定値を確認してください';}
   }
-  if(String(sheet.getRange('A6').getDisplayValue())!==label)
+  const shown=String(sheet.getRange('A6').getDisplayValue());
+  if(shown!==label&&!shown.startsWith(label+'｜'))
     sheet.getRange('A6').setValue(label);
+}
+function vasProgressOnEdit_(e) {
+  if(!e||!e.range||e.range.getSheet().getName()!=='30_分析設定')
+    return;
+  const r=e.range;
+  if(r.getColumn()>2||r.getLastColumn()<2)return;
+  const watched=[5,6,9,10,13,14,28,29,30];
+  if(!watched.some(n=>r.getRow()<=n&&r.getLastRow()>=n))return;
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(r.getRow()<=14){
+    vasProgressCheckStatus_(ss);
+    return;
+  }
+  // Progress mode and forecast checkbox are instant formula switches;
+  // the only limited input is the number of Web comparison series.
+  if(r.getRow()<=30&&r.getLastRow()>=30){
+    try{vasProgressSettings_(ss.getSheetByName('30_分析設定'));}
+    catch(e){ss.getSheetByName('41_応募進捗').getRange('A6')
+      .setValue(String(e.message||e));}
+  }
 }
 function vasProgressEnsureChart_(sheet){
   const charts=sheet.getCharts();
