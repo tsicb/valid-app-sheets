@@ -22,7 +22,9 @@ function vasReplaceFromSheet_(destination,source,headers) {
   if(last>1)destination.getRange(2,1,last-1,width).clearContent();
   const dataCount=Math.max(0,source.getLastRow()-1);
   vasEnsureRows_(destination,dataCount+1);
-  const size=500;
+  // Larger contiguous ranges reduce the number of Sheets service calls.
+  // 1,000 rows is conservative for the current 23-column applicant schema.
+  const size=1000;
   for(let offset=0;offset<dataCount;offset+=size) {
     const n=Math.min(size,dataCount-offset);
     const values=source.getRange(2+offset,1,n,width).getValues()
@@ -120,13 +122,15 @@ function finalizeVASImport(sessionId) {
     }
     const generation=String(sessionId);
     vasUpdateHomeAfterImport_(sum,generation);
-    vasStateSet_('active_generation',generation);
-    vasStateSet_('last_import_at',new Date());
-    vasStateSet_('last_analysis_at','');
-    vasStateSet_('last_import_error','');
-    vasStateSet_('upload_session','');
-    vasStateSet_('import_status','READY');
-    vasStateSet_('old_home_snapshot','');
+    vasStateBulkSet_({
+      active_generation:generation,
+      last_import_at:new Date(),
+      last_analysis_at:'',
+      last_import_error:'',
+      upload_session:'',
+      import_status:'READY',
+      old_home_snapshot:''
+    });
     SpreadsheetApp.flush();
 
     // Cleanup errors do not turn a successful publish into a false failure.
@@ -141,11 +145,14 @@ function finalizeVASImport(sessionId) {
       try {
         vasRestoreBackups_();
         vasRestoreHomeSnapshot_();
-        vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
-        vasStateSet_('last_import_error','CSV更新失敗・前回データを復旧しました：'+String(e.message||e));
+        vasStateBulkSet_({
+          import_status:String(vasStateGet_('previous_import_status')||'UNIMPORTED'),
+          last_import_error:'CSV更新失敗・前回データを復旧しました：'+String(e.message||e),
+          upload_session:'',
+          old_home_snapshot:''
+        });
         const home=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('00_ホーム');
         if(home)home.getRange('B15').setValue('更新失敗・前回データを復旧');
-        vasStateSet_('upload_session','');
         try{vasCleanStages_();vasCleanBackups_();}catch(_){}
       }catch(recoveryError){
         vasStateSet_('import_status','RECOVERY_REQUIRED');
@@ -154,8 +161,11 @@ function finalizeVASImport(sessionId) {
     } else if(state==='PREPARED') {
       // Live sheets were not modified. Keep the previous generation.
       vasRestoreHomeSnapshot_();
-      vasStateSet_('import_status',String(vasStateGet_('previous_import_status')||'UNIMPORTED'));
-      vasStateSet_('upload_session','');
+      vasStateBulkSet_({
+        import_status:String(vasStateGet_('previous_import_status')||'UNIMPORTED'),
+        upload_session:'',
+        old_home_snapshot:''
+      });
       try{vasCleanStages_();vasCleanBackups_();}catch(_){}
     }
     throw e;
