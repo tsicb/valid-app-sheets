@@ -119,19 +119,12 @@ function vasProgressEnsureChart_(sheet){
  * Explicit operation: analysis source and chart source are fully recomputed.
  * B28/B29/B30 are worksheet-driven, so toggling them never executes GAS.
  */
-function applyProgressAnalysis(){
-  const lock=vasImportLock_();
-  try {
-    if(vasStatus_()!=='READY')
-      throw new Error('CSV全件取込が正常完了してから実行してください。');
-    const ss=SpreadsheetApp.getActiveSpreadsheet();
+/** Publish progress from a shared applicant snapshot without UI or lock. */
+function vasRunProgressAnalysis_(context){
+  const ss=context.ss;
     const settings=ss.getSheetByName('30_分析設定');
     vasProgressSettings_(settings); // fail on unsupported comparison counts
-    const snapshot=vasBasicSnapshotFromSheet_(settings,
-      ss.getSheetByName('31_マスタ編集'));
-    const apps=vasReadVisibleRange_(
-      ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length
-    );
+    const {snapshot,apps}=context;
     const result=vasProgressCalculate_(apps,snapshot.options);
     const cache=ss.getSheetByName('91_進捗キャッシュ');
     const view=ss.getSheetByName('41_応募進捗');
@@ -202,16 +195,26 @@ function applyProgressAnalysis(){
       '｜予測は選択期間内の応募ペースによる単純換算':
       '対象期間に応募データがありません');
     SpreadsheetApp.flush();
-    SpreadsheetApp.getUi().alert(
-      result.visible?'応募進捗を更新しました。\n最新月：'+
-        result.latestMonthLabel+'\n観測日：'+result.latestDate+
-        '\n実績：'+result.actual+'件\n月別一覧：'+
-        result.monthlyRows.length+'か月分':
-        '集計対象となる応募日付がありません。応募進捗は空表示にしました。'
-    );
+    return {result,months:result.monthlyRows.length};
+}
+
+/** Individually rerun progress, for maintenance and diagnostics. */
+function applyProgressAnalysis(){
+  const lock=vasImportLock_();
+  try {
+    if(vasStatus_()!=='READY')throw new Error('CSV全件取込が正常完了してから実行してください。');
+    const ss=SpreadsheetApp.getActiveSpreadsheet();
+    const settings=ss.getSheetByName('30_分析設定');
+    const snapshot=vasBasicSnapshotFromSheet_(settings,ss.getSheetByName('31_マスタ編集'));
+    const apps=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
+    const {result}=vasRunProgressAnalysis_({ss,snapshot,apps});
+    SpreadsheetApp.getUi().alert(result.visible?
+      '応募進捗を更新しました。\n最新月：'+result.latestMonthLabel+
+      '\n観測日：'+result.latestDate+'\n実績：'+result.actual+
+      '件\n月別一覧：'+result.monthlyRows.length+'か月分':
+      '集計対象となる応募日付がありません。応募進捗は空表示にしました。');
   }catch(e){
-    SpreadsheetApp.getUi().alert('応募進捗の更新に失敗しました。\n'+
-      String(e.message||e));
+    SpreadsheetApp.getUi().alert('応募進捗の更新に失敗しました。\n'+String(e.message||e));
     throw e;
   }finally{lock.releaseLock();}
 }
