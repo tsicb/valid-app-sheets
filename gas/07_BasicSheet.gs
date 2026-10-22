@@ -31,6 +31,10 @@ function applyBasicAnalysis(){
     vasEnsureRows_(basic,displayRows);
     const prevRows=Math.max(0,cache.getLastRow()-1);
     if(prevRows)cache.getRange(2,1,prevRows,13).clearContent();
+    // Category labels such as "8-14日" must not be interpreted as dates.
+    // Set plain-text formatting BEFORE setValues, including cells that had
+    // already been coerced to dates during an earlier recalculation.
+    cache.getRange(2,2,required-1,1).setNumberFormat('@');
     if(result.rows.length){
       const n=1000;
       for(let offset=0;offset<result.rows.length;offset+=n)
@@ -51,6 +55,9 @@ function applyBasicAnalysis(){
         .setAllowInvalid(false).build()
     );
     basic.getRange('A9:L'+basic.getMaxRows()).clearContent();
+    // FILTER spills category text into column A. Reapply plain text here
+    // too, to reset any previous automatic date format on the result tab.
+    basic.getRange('A9:A'+basic.getMaxRows()).setNumberFormat('@');
     if(labels.length){
       basic.getRange('A9').setFormula(
         '=IFNA(FILTER(\'90_基本集計キャッシュ\'!B2:M,'+
