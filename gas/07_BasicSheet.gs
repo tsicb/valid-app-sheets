@@ -1,16 +1,9 @@
-/** Build cached basic tables without re-importing CSV data. */
-function applyBasicAnalysis(){
-  const lock=vasImportLock_();
-  try{
-    if(vasStatus_()!=='READY')throw new Error('CSV全件取込が正常完了してから実行してください。');
-    const ss=SpreadsheetApp.getActiveSpreadsheet();
+/** Aggregate and publish basic analysis with previously loaded data. No lock or UI. */
+function vasRunBasicAnalysis_(context) {
+  const ss=context.ss;
     const settings=ss.getSheetByName('30_分析設定');
-    const snapshot=vasBasicSnapshotFromSheet_(
-      settings,ss.getSheetByName('31_マスタ編集')
-    );
+    const {snapshot,app,jobs}=context;
     const options={...snapshot.options,masters:snapshot.masters};
-    const app=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
-    const jobs=vasReadVisibleRange_(ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
     const result=vasCalculateBasic_(app,jobs,options);
     const cache=ss.getSheetByName('90_基本集計キャッシュ');
     const basic=ss.getSheetByName('40_基本分析');
@@ -93,8 +86,22 @@ function applyBasicAnalysis(){
     vasWriteAppliedBasicConditions_(ss,snapshot);
     settings.getRange('C3').setValue('設定変更後は「基本分析を再集計」を実行してください。');
     SpreadsheetApp.flush();
+    return {total:result.total,enabledAxes:labels.length};
+}
+
+/** Individual maintenance action; remains available in the admin menu. */
+function applyBasicAnalysis(){
+  const lock=vasImportLock_();
+  try {
+    if(vasStatus_()!=='READY')throw new Error('CSV全件取込が正常完了してから実行してください。');
+    const ss=SpreadsheetApp.getActiveSpreadsheet();
+    const settings=ss.getSheetByName('30_分析設定');
+    const snapshot=vasBasicSnapshotFromSheet_(settings,ss.getSheetByName('31_マスタ編集'));
+    const app=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
+    const jobs=vasReadVisibleRange_(ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
+    const result=vasRunBasicAnalysis_({ss,snapshot,app,jobs});
     SpreadsheetApp.getUi().alert('基本分析を更新しました。\n対象応募：'+result.total+
-      ' 件\n利用可能な基本分析：'+labels.length+'項目。\n40_基本分析のB3で切替できます。');
+      ' 件\n利用可能な基本分析：'+result.enabledAxes+'項目。\n40_基本分析のB3で切替できます。');
   }catch(e){
     SpreadsheetApp.getUi().alert('基本分析の更新に失敗しました。\n'+String(e.message||e));
     throw e;
