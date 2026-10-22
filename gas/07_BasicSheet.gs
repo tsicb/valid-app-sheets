@@ -2,7 +2,8 @@
 function vasRunBasicAnalysis_(context) {
   const ss=context.ss;
     const settings=ss.getSheetByName('30_分析設定');
-    const {snapshot,app,jobs}=context;
+    const {snapshot,jobs}=context;
+    const app=context.apps||context.app;
     const options={...snapshot.options,masters:snapshot.masters};
     const result=vasCalculateBasic_(app,jobs,options);
     const cache=ss.getSheetByName('90_基本集計キャッシュ');
