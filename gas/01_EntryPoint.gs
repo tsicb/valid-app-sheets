@@ -1,23 +1,34 @@
 /** Bound-sheet menu, CSV upload and basic-analysis entry points. */
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('有効応募分析')
-    .addItem('CSV取込・全件更新', 'openCsvDialog')
+  const ui=SpreadsheetApp.getUi();
+  // Daily actions first; infrequent recovery and maintenance are nested.
+  const images=ui.createMenu('画像関連')
+    .addItem('TOP画像URLを取得', 'refreshTopImages')
+    .addItem('取得失敗した画像URLを再試行', 'retryFailedTopImages');
+  const individual=ui.createMenu('個別に再集計')
     .addItem('基本分析を再集計', 'applyBasicAnalysis')
     .addItem('応募進捗を再集計', 'applyProgressAnalysis')
-    .addItem('カスタム分析候補を更新', 'refreshCustomAxes')
-    .addItem('カスタム分析を実行', 'applyCustomAnalysis')
     .addItem('TOP画像・Indeedタグを再集計', 'applyDetailAnalysis')
-    .addItem('TOP画像URLを取得', 'refreshTopImages')
-    .addItem('取得失敗した画像URLを再試行', 'retryFailedTopImages')
+    .addItem('カスタム分析の候補を更新', 'refreshCustomAxes');
+  const imports=ui.createMenu('CSV取込の管理')
     .addItem('取込状態を確認', 'checkVASImportStatus')
-    .addItem('中断したCSV取込を破棄', 'abandonVASImport')
-    .addSeparator()
-    .addItem('初期テンプレートを作成・確認', 'setupTemplate')
+    .addItem('中断したCSV取込を破棄', 'abandonVASImport');
+  const maintenance=ui.createMenu('保守・復旧')
     .addItem('テンプレート状態を点検', 'verifyTemplate')
-    .addItem('旧データを復旧', 'recoverVASImport')
+    .addItem('初期テンプレートを作成・確認', 'setupTemplate')
+    .addItem('旧データを復旧', 'recoverVASImport');
+  const admin=ui.createMenu('その他・管理')
+    .addSubMenu(images)
+    .addSubMenu(individual)
+    .addSubMenu(imports)
+    .addSubMenu(maintenance)
     .addSeparator()
-    .addItem('使い方・現在の実装範囲', 'showTemplateHelp')
+    .addItem('使い方・現在の実装範囲', 'showTemplateHelp');
+  ui.createMenu('有効応募分析')
+    .addItem('CSVを取り込む・更新', 'openCsvDialog')
+    .addItem('分析結果を更新', 'updateAllAnalysis')
+    .addItem('カスタム分析を実行', 'applyCustomAnalysis')
+    .addSubMenu(admin)
     .addToUi();
   try { vasRefreshBasicStatus_(); } catch (_) {}
   try { vasProgressCheckStatus_(SpreadsheetApp.getActiveSpreadsheet()); } catch (_) {}
@@ -124,10 +135,15 @@ function verifyTemplate() {
 function showTemplateHelp() {
   SpreadsheetApp.getUi().alert(
     '有効応募分析 スプレッドシート版 v' + VAS_TEMPLATE_VERSION + '\n\n' +
-    '1. 最初に「初期テンプレートを作成・確認」を実行します。\n' +
-    '2. 30_分析設定で設定値を、31_マスタ編集でマスタを編集できます。\n' +
-    '3. 上部メニューのCSV取込から、応募CSVと任意の求人CSVを全件アップロードできます。\n' +
-    '4. 基本分析・応募進捗はそれぞれ再集計メニューで更新します。カスタム分析は候補を更新後、行・列軸を選んで実行します。\n\n' +
-    '空のテンプレートをコピーして、マイドライブ内で利用する設計です。'
+    '1. 「CSVを取り込む・更新」から応募CSVと求人CSVを読み込みます。\n' +
+    '2. 「30_分析設定」「31_マスタ編集」で条件を調整します。\n' +
+    '3. 「分析結果を更新」で基本分析・応募進捗・TOP画像・Indeedタグと'+
+      'カスタム分析の選択候補をまとめて更新します。\n' +
+    '4. カスタム分析は「42_カスタム分析」で軸を選び'+
+      '「カスタム分析を実行」します。既存の選択・集計結果は一括更新では変えません。\n' +
+    '5. 画像URL取得、個別再集計、取込の管理、復旧は'+
+      '「その他・管理」にまとめています。\n\n' +
+    'プルダウンによる基本分析の表示切替と応募進捗の日別・累積切替は'+
+      '再集計せず使えます。'
   );
 }
