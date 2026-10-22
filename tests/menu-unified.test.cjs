@@ -21,7 +21,7 @@ const sheetNames=['30_分析設定','31_マスタ編集',
  '00_ホーム','41_応募進捗','43_TOP画像','44_Indeedタグ'];
 const sheets=Object.fromEntries(sheetNames.map(name=>[
  name,{name,cells:{},getRange(cell){return {
-  getValue:()=>name==='30_分析設定'&&cell==='I36'?true:'',
+  getValue:()=>name==='30_分析設定'&&cell==='I5'?true:'',
   setValue:v=>{this.cells[cell]=v;}
  }}}
 ]));
