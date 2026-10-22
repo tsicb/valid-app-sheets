@@ -20,8 +20,8 @@ const sheetNames=['30_分析設定','31_マスタ編集',
  '20_突合データ','93_求人分析マスタ','94_画像マスタ',
  '00_ホーム','41_応募進捗','43_TOP画像','44_Indeedタグ'];
 const sheets=Object.fromEntries(sheetNames.map(name=>[
- name,{name,cells:{},getRange(cell){return {
-  getValue:()=>name==='30_分析設定'&&cell==='I5'?true:'',
+ name,{name,cells:{},getRange(cell,col){return {
+  getValue:()=>name==='30_分析設定'&&(cell==='I5'||(cell===5&&col===9))?true:'',
   setValue:v=>{this.cells[cell]=v;}
  }}}
 ]));
@@ -52,7 +52,7 @@ const api={
  VAS_IMAGE_MASTER_HEADERS:Array(5),
  VAS_DISPLAY_ITEMS:[['top-image-detail','TOP画像ファイル名',true]],
  vasRunBasicAnalysis_:ctx=>{
-  assert.strictEqual(ctx.app,applicants);
+  assert.strictEqual(ctx.apps,applicants);
   assert.strictEqual(ctx.jobs,jobs);
   use.push('basic');return {total:1,enabledAxes:29};
  },
