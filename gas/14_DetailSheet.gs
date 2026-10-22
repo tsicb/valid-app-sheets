@@ -170,27 +170,18 @@ function vasDetailRefreshStatus_(){
  }
 }
 /** One explicit action updates both 14-column detail tabs. */
-function applyDetailAnalysis(){
- const lock=vasImportLock_();
- try{
-  if(vasStatus_()!=='READY')throw new Error('先にCSV全件取込を完了してください。');
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
+/** Publish both detail tabs from shared applicant, job and image rows. */
+function vasRunDetailAnalysis_(context){
+ const ss=context.ss;
   const imageSheet=ss.getSheetByName('43_TOP画像');
   const tagSheet=ss.getSheetByName('44_Indeedタグ');
   vasDetailEnsureHeader_(imageSheet,VAS_IMAGE_HEADERS);
   vasDetailEnsureHeader_(tagSheet,VAS_TAG_HEADERS);
-  const opts=vasDetailSettings_(ss);
-  const tagNames=vasDetailTagMaster_(vasDetailMasterRows_(ss));
-  const apps=vasReadVisibleRange_(
-   ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
-  const jobs=vasReadVisibleRange_(
-   ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
+  const {options:opts,tagNames,apps,jobs,imageRows:sources}=context;
   const result=vasDetailCalculate_(apps,jobs,opts,tagNames);
   vasDetailPreflight_(ss,result);
-  const sources=vasReadVisibleRange_(
-   ss.getSheetByName('94_画像マスタ'),VAS_IMAGE_MASTER_HEADERS.length);
   const urls=vasDetailImageMap_(sources);
-  const snapshot=vasDetailSnapshot_(ss);
+  const snapshot=context.detailSnapshot||vasDetailSnapshot_(ss);
   // A write failure cannot leave the old "applied" flag behind.
   vasStateBulkSet_({detail_update_status:'WRITING',detail_applied_snapshot:''});
   imageSheet.getRange('B3').setValue('専用集計を更新中です');
@@ -219,19 +210,31 @@ function applyDetailAnalysis(){
   tagSheet.getRange('B3').setValue('専用集計反映済み｜'+result.tags.length+'タグ分類');
   vasDetailsSyncVisibility_(ss);
   SpreadsheetApp.flush();
-  SpreadsheetApp.getUi().alert(
-   'TOP画像・Indeedタグ集計を更新しました。\n'+
+  return {baseTotal:result.baseTotal,imageCount:result.images.length,
+   tagCount:result.tags.length,imagesResolved:rendered.displayed};
+}
+/** Individually update both detail tabs for maintenance. */
+function applyDetailAnalysis(){
+ const lock=vasImportLock_();
+ try {
+  if(vasStatus_()!=='READY')throw new Error('先にCSV全件取込を完了してください。');
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const options=vasDetailSettings_(ss);
+  const tagNames=vasDetailTagMaster_(vasDetailMasterRows_(ss));
+  const apps=vasReadVisibleRange_(ss.getSheetByName('20_突合データ'),VAS_APPLICATION_HEADERS.length);
+  const jobs=vasReadVisibleRange_(ss.getSheetByName('93_求人分析マスタ'),VAS_JOB_HEADERS.length);
+  const imageRows=vasReadVisibleRange_(ss.getSheetByName('94_画像マスタ'),VAS_IMAGE_MASTER_HEADERS.length);
+  const result=vasRunDetailAnalysis_({ss,options,tagNames,apps,jobs,imageRows});
+  SpreadsheetApp.getUi().alert('TOP画像・Indeedタグ集計を更新しました。\n'+
    '求人CSV突合済み応募：'+result.baseTotal+'件\n'+
-   '画像分類：'+result.images.length+'種類\nタグ分類：'+
-   result.tags.length+'種類。\n画像URL取得は別操作です。'
-  );
+   '画像分類：'+result.imageCount+'種類\nタグ分類：'+
+   result.tagCount+'種類。\n画像URL取得は別操作です。');
  }catch(e){
   try{
    if(vasStateGet_('detail_update_status')==='WRITING'){
     const ss=SpreadsheetApp.getActiveSpreadsheet();
     for(const name of ['43_TOP画像','44_Indeedタグ'])
-     ss.getSheetByName(name).getRange('B3')
-      .setValue('集計途中で失敗しました。再集計が必要です。');
+     ss.getSheetByName(name).getRange('B3').setValue('集計途中で失敗しました。再集計が必要です。');
    }
   }catch(_){}
   SpreadsheetApp.getUi().alert('TOP画像・Indeedタグ集計に失敗しました。\n'+
